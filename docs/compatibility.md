@@ -29,7 +29,7 @@ Windows 文件使用受保护 DACL，允许当前用户、SYSTEM、管理员访�
 
 ## 自动化验证
 
-工作流 `.github/workflows/ci.yml` 包含 Ubuntu、macOS、Windows × Python 3.10/3.12 六组单元测试及安装验证，另外有三个平台的原生客户端集成作业。2026-09-24 的 [九个 CI 作业全部通过](https://github.com/S1mpleCheeq/ai-switch/actions/runs/35970765128)：六组单元/安装测试，以及三个平台的真实原生客户端集成与接管测试。最终发布提交的状态可在 [GitHub Actions](https://github.com/S1mpleCheeq/ai-switch/actions) 查看。
+工作流 `.github/workflows/ci.yml` 包含 Ubuntu、macOS、Windows × Python 3.10/3.12 六组单元测试及安装验证，另外有三个平台的原生客户端集成作业。2026-09-24，1.10.0 重构代码的 [九个 CI 作业全部通过](https://github.com/S1mpleCheeq/ai-switch/actions/runs/35983878876)：六组单元/安装测试，以及三个平台的真实原生客户端集成与接管测试。最终发布提交的状态可在 [GitHub Actions](https://github.com/S1mpleCheeq/ai-switch/actions) 查看。
 
 1.10.0 的 153 项测试保留 1.9.1 的全部 152 项用例，并增加原命令树的参数、默认值与选项兼容检查。Linux 接管测试在 Linux 执行；macOS/Windows 原生锁及接管测试在相应 runner 执行，其他平台跳过。测试覆盖配置事务回滚、profile CRUD、基准和资源校验、历史修复、Windows ACL、跨进程锁、真实子进程接管、参数传递、含空格/中文路径、安装入口与发布包边界。启动器预检查、异常锁拒绝、旧 hook 清理和 PATH 中不同 Python 的回归用例继续保留。
 
