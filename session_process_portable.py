@@ -128,7 +128,7 @@ def validate_owner(held, info, home):
     if os.name == 'nt':
         # Windows open_files() is incomplete. Scan actual locked files under
         # the process's CODEX_HOME and query Restart Manager for each instead.
-        env = process.environ()
+        env = {k.upper(): v for k, v in process.environ().items()}
         configured = env.get('CODEX_HOME') or str(Path(env.get('USERPROFILE', str(Path.home())))/'.codex')
         if Path(configured).resolve() != Path(home).resolve():
             raise TakeoverError('占用进程的 CODEX_HOME 与目标不一致，未结束进程。')

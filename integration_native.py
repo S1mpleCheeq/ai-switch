@@ -16,6 +16,7 @@ if args.catalog is None:
  model=dict(display_name='Local fixture',description='Synthetic integration test model',default_reasoning_level='high',supported_reasoning_levels=[dict(effort=e,description=e) for e in ('low','medium','high','xhigh')],shell_type='unified_exec',visibility='list',supported_in_api=True,priority=1,base_instructions='Reply briefly. Do not use tools.',supports_reasoning_summaries=True,support_verbosity=True,default_verbosity='low',apply_patch_tool_type='freeform',truncation_policy=dict(mode='tokens',limit=10000),context_window=272000,effective_context_window_percent=95,experimental_supported_tools=[],input_modalities=['text'])
  args.catalog.write_text(json.dumps(dict(models=[dict(model,slug=slug) for slug in ('gpt-6-astra','gemini-3.8-flash-high')])),encoding='utf-8')
 requests=[]
+hold_next=threading.Event();hold_started=threading.Event();hold_release=threading.Event()
 class H(BaseHTTPRequestHandler):
  def log_message(self,*args): pass
  def do_GET(self):
@@ -27,6 +28,8 @@ class H(BaseHTTPRequestHandler):
    import zstandard
    raw=zstandard.ZstdDecompressor().stream_reader(io.BytesIO(raw)).read()
   d=json.loads(raw or '{}');requests.append((self.path,d))
+  if '/responses' in self.path and hold_next.is_set():
+   hold_next.clear();hold_started.set();hold_release.wait(40);return
   self.send_response(200);self.send_header('Content-Type','text/event-stream');self.send_header('Connection','close');self.end_headers()
   def emit(t,x):
    self.wfile.write(('event: '+t+'\ndata: '+json.dumps(x)+'\n\n').encode())
@@ -108,6 +111,33 @@ try:
   assert all(d.get('reasoning',{}).get('effort')=='xhigh' for p,d in req if '/responses' in p)
   assert manager.profile(mode,'codex')['values']['model_reasoning_effort']==('xhigh' if route=='micu' else 'ultra')
  print('codex full-profile resume both directions retained history',flush=True)
+ # Hold one request from an actual native Codex process in this isolated home.
+ # Verify takeover against its real lock, never a user session or remote API.
+ cmd,child_env=client_command('codex','micu',sid)
+ cmd.insert(cmd.index('resume'),'exec')
+ hold_next.set()
+ child=subprocess.Popen(cmd+['--skip-git-repo-check','--json','WAIT for local takeover fixture'],
+                        env=child_env,cwd=root,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                        start_new_session=os.name != 'nt')
+ try:
+  assert hold_started.wait(30), 'Native takeover fixture did not reach local API'
+  assert switch.session_process.ensure_available(root/'codex',sid,takeover=True,dry_run=True)
+  assert child.poll() is None, 'Dry run terminated the native client'
+  assert not switch.session_process.ensure_available(root/'codex',sid,takeover=True,timeout=15)
+  child.communicate(timeout=15)
+ finally:
+  hold_release.set()
+  if child.poll() is None:
+   import psutil
+   for item in psutil.Process(child.pid).children(recursive=True): item.kill()
+   child.kill();child.communicate(timeout=5)
+ cmd,child_env=client_command('codex','aster',sid)
+ cmd.insert(cmd.index('resume'),'exec')
+ before=len(requests)
+ run('codex-after-takeover',cmd+['--skip-git-repo-check','--json','CONTINUE fixture-7 after takeover'],child_env)
+ assert any('REMEMBER fixture-7' in json.dumps(d) for p,d in requests[before:])
+ print('codex native takeover and same-UUID continuation passed',flush=True)
+
  sid=str(uuid.uuid4())
  for i,mode in enumerate(['aster','micu','aster','backup-micu','backup-aster']):
   route=mode.removeprefix('backup-')

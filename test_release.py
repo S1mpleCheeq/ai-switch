@@ -6,6 +6,7 @@ import tarfile
 import tempfile
 import unittest
 import uuid
+import zipfile
 
 import release
 
@@ -46,6 +47,19 @@ class ReleaseTests(unittest.TestCase):
             release.collect(self.root)
         self.assertNotIn(key, str(result.exception))
         self.assertIn('README.md:1', str(result.exception))
+
+    def test_platform_archives_contain_the_same_public_sources(self):
+        for platform in ('linux', 'macos', 'windows'):
+            archive, count = release.build(self.root, self.root/'dist', platform)
+            if platform == 'windows':
+                with zipfile.ZipFile(archive) as bundle:
+                    content = {name.split('/',1)[1]:bundle.read(name) for name in bundle.namelist()}
+            else:
+                with tarfile.open(archive) as bundle:
+                    content = {m.name.split('/',1)[1]:bundle.extractfile(m).read() for m in bundle.getmembers()}
+            self.assertEqual(set(content), set(release.FILES))
+            for name, data in content.items():
+                self.assertEqual(data, (self.root/name).read_bytes())
 
     def test_arbitrary_template_key_and_symlinks_are_rejected(self):
         path = self.root/'templates/aster/claude.json'

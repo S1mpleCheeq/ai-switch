@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 import shlex
 import shutil
@@ -20,10 +21,19 @@ def native_command(command):
         name = Path(command[0]).stem.lower()
         if name in packages:
             package, entry = packages[name]
-            script = folder/'node_modules'/package/entry
+            package_dir = folder/'node_modules'/package
+            manifest = package_dir/'package.json'
+            if manifest.is_file():
+                declared = json.loads(manifest.read_text(encoding='utf-8')).get('bin', {})
+                entry = declared.get(name, entry) if isinstance(declared, dict) else declared
+            if not isinstance(entry, str) or Path(entry).is_absolute() or '..' in Path(entry).parts:
+                raise OSError('客户端 npm bin 路径无效。')
+            script = package_dir/entry
+            if script.is_file() and script.suffix.lower() == '.exe':
+                return [str(script), *command[1:]]
             node = folder/'node.exe'
             executable = str(node) if node.is_file() else shutil.which('node')
-            if script.is_file() and executable:
+            if script.is_file() and script.suffix.lower() in ('.js', '.cjs', '.mjs') and executable:
                 return [executable, str(script), *command[1:]]
         raise OSError('无法安全解析客户端 .cmd 启动器；请安装原生可执行文件或标准 npm 客户端。')
     return command

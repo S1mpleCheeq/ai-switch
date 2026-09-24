@@ -40,6 +40,12 @@ class RuntimeTests(unittest.TestCase):
                              [str(root/'node.exe'), str(entry), 'resume', 'a&b'])
             with self.assertRaisesRegex(OSError, '无法安全解析'):
                 runtime.native_command([str(root/'unknown.cmd')])
+            claude = root/'node_modules/@anthropic-ai/claude-code'
+            (claude/'bin').mkdir(parents=True)
+            (claude/'bin/claude.exe').touch()
+            (claude/'package.json').write_text(json.dumps({'bin': {'claude': 'bin/claude.exe'}}))
+            self.assertEqual(runtime.native_command([str(root/'claude.cmd'), 'a&b']),
+                             [str(claude/'bin/claude.exe'), 'a&b'])
 
 
 if __name__ == '__main__':
