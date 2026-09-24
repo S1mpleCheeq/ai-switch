@@ -6,6 +6,7 @@ import importlib.metadata
 import os
 from pathlib import Path
 import shutil
+import shlex
 import sys
 import tempfile
 
@@ -62,7 +63,9 @@ def main():
             filename = 'ai-switch.exe'
         else:
             filename = 'ai-switch'
-            (launch_stage/filename).write_text('#!/usr/bin/env python3\n'+loader, encoding='utf-8')
+            python = getattr(sys, '_base_executable', sys.executable)
+            command = shlex.join([python, '-X', 'utf8', str(lib/'ai_switch.py')])
+            (launch_stage/filename).write_text('#!/bin/sh\nexec '+command+' "$@"\n', encoding='utf-8')
             os.chmod(launch_stage/filename, 0o755)
         if old.exists():shutil.rmtree(old)
         if lib.exists():lib.rename(old)

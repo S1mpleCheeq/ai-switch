@@ -19,6 +19,26 @@ while True:time.sleep(.1)
 '''
 
 
+class MalformedLockTests(unittest.TestCase):
+    @unittest.skipUnless(hasattr(os, 'mkfifo'), 'POSIX FIFO locks')
+    def test_fifo_is_rejected_without_hanging_or_signalling(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'fixture.lock'
+            os.mkfifo(path)
+            script = ('import sys;from pathlib import Path;import session_process_portable as p\n'
+                      'try:p.busy(Path(sys.argv[1]))\n'
+                      'except p.TakeoverError:print("rejected")\n')
+            result = subprocess.run([sys.executable,'-c',script,str(path)],
+                                    capture_output=True,text=True,timeout=3)
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertEqual(result.stdout.strip(),'rejected')
+
+    def test_non_regular_lock_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises((process.TakeoverError,OSError)):
+                process.busy(Path(directory))
+
+
 @unittest.skipUnless(sys.platform == 'darwin' or os.name == 'nt', 'Native macOS/Windows takeover')
 class PortableProcessTests(unittest.TestCase):
     def setUp(self):

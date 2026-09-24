@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -83,17 +84,25 @@ def busy(path):
     if path.is_symlink() or path.parent.is_symlink():
         raise TakeoverError('会话写锁经过符号链接，未结束进程。')
     try:
-        with path.open('rb') as stream:
-            info = os.fstat(stream.fileno())
-            try:
-                platform_io.file_lock(stream.fileno())
-            except BlockingIOError:
-                return (info.st_dev, info.st_ino)
-            else:
-                platform_io.file_lock(stream.fileno(), False)
-                return None
+        # O_NONBLOCK prevents malformed POSIX FIFO locks from hanging before
+        # fstat can reject them. O_NOFOLLOW closes the final-component race.
+        fd = os.open(path, os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0)
+                     | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0))
     except FileNotFoundError:
         return None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise TakeoverError('会话写锁不是普通文件，未结束进程。')
+        try:
+            platform_io.file_lock(fd)
+        except BlockingIOError:
+            return (info.st_dev, info.st_ino)
+        else:
+            platform_io.file_lock(fd, False)
+            return None
+    finally:
+        os.close(fd)
 
 
 def writer(home, session):

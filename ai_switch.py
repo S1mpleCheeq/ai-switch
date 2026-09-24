@@ -37,7 +37,7 @@ import platform_runtime
 sys.path.insert(0, str(Path(__file__).resolve().parent / "vendor"))
 import tomlkit
 
-VERSION = "1.9.0"
+VERSION = "1.9.1"
 MODES = ("micu", "aster")  # Bootstrap templates; runtime profiles are discovered on disk.
 APPS = ("claude", "codex")
 CLAUDE_FIELDS = ("model", "effortLevel", "modelSettings", "ultracode", "enableArtifact",
@@ -776,7 +776,9 @@ class Manager:
             for group in result[event]:
                 g = copy.deepcopy(group)
                 g["hooks"] = [h for h in g.get("hooks", [])
-                              if h.get("command") != self.hook_command()]
+                              if h.get("command") != self.hook_command()
+                              and not platform_runtime.is_managed_hook(
+                                  h.get("command", ""), self.root / "assets/read_guard.py")]
                 if g["hooks"]:
                     groups.append(g)
             if groups:
@@ -1298,6 +1300,9 @@ class Manager:
         executable = shutil.which(args.app)
         if not executable:
             raise SwitchError(f'找不到客户端：{args.app}')
+        # Resolve npm launchers before terminating an old session or switching
+        # live configuration. Unsupported shims must leave both untouched.
+        command_prefix = platform_runtime.native_command([executable])
         planned_takeover = False
         if args.app == 'codex' and session:
             planned_takeover = session_process.ensure_available(
@@ -1314,7 +1319,7 @@ class Manager:
                 print('仅预览：旧进程退出后才检查历史；实际续接 UUID 以届时检查结果为准。')
             else:
                 session = self.repair_session(session, dry_run=args.dry_run, automatic=True)
-        cmd=[executable]
+        cmd=list(command_prefix)
         if args.app == 'claude':
             claude_dir = Path(state['paths']['claude']).parent.resolve()
             if claude_dir == (Path.home() / '.claude').resolve():

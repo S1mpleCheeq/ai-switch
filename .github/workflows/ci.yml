@@ -30,6 +30,13 @@ jobs:
           command = root/'bin'/('ai-switch.exe' if os.name == 'nt' else 'ai-switch')
           subprocess.run([str(command),'--version'],check=True)
           subprocess.run([str(command),'profile','template','aster','--app','codex'],check=True)
+          if os.name != 'nt':
+              fake = root/'fake-python'; fake.mkdir()
+              interpreter = fake/'python3'
+              interpreter.write_text('#!/bin/sh\nexit 91\n')
+              interpreter.chmod(0o755)
+              env = dict(os.environ,PATH=str(fake)+os.pathsep+os.environ['PATH'])
+              subprocess.run([str(command),'--version'],env=env,check=True)
       - run: python release.py
   native-clients:
     strategy:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import json
+import re
 from pathlib import Path
 import shlex
 import shutil
@@ -61,8 +62,23 @@ def display_command(command):
 def hook_command(path):
     # Claude command hooks use a POSIX shell (Git Bash on native Windows).
     # Forward slashes avoid backslash interpretation in Git Bash paths.
-    python = Path(sys.executable).as_posix()
+    python = Path(getattr(sys, '_base_executable', sys.executable)).as_posix()
     return shlex.join([python, '-X', 'utf8', Path(path).as_posix()])
+
+
+def is_managed_hook(command, script):
+    """Recognize our script across Python upgrades without removing other hooks."""
+    if not isinstance(command, str):
+        return False
+    try:
+        parts = shlex.split(command)
+        if len(parts) < 2 or not re.fullmatch(r'python(?:\d+(?:\.\d+)*)?(?:\.exe)?', Path(parts[0]).name, re.I):
+            return False
+        if parts[1:-1] not in ([], ['-X', 'utf8']):
+            return False
+        return Path(parts[-1]).resolve() == Path(script).resolve()
+    except (ValueError, OSError):
+        return False
 
 
 def editor_command():

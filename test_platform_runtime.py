@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import shlex
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -27,6 +28,13 @@ class RuntimeTests(unittest.TestCase):
             path.touch()
             with patch.dict(os.environ, {'VISUAL': str(path)}):
                 self.assertEqual(runtime.editor_command(), [str(path)])
+
+    def test_hook_recognition_preserves_unrelated_and_shell_commands(self):
+        script = Path.cwd()/'fixture guard.py'
+        self.assertTrue(runtime.is_managed_hook(shlex.join(['python3.10','-X','utf8',str(script)]), script))
+        self.assertFalse(runtime.is_managed_hook(shlex.join(['python3',str(script.with_name('unrelated.py'))]), script))
+        self.assertFalse(runtime.is_managed_hook('echo hello && '+shlex.join(['python3',str(script)]), script))
+        self.assertFalse(runtime.is_managed_hook('invalid "quote', script))
 
     @unittest.skipUnless(os.name == 'nt', 'Native Windows npm shims')
     def test_npm_shim_is_resolved_without_cmd_shell(self):

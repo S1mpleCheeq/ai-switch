@@ -2,7 +2,7 @@
 
 本地管理 Claude Code 和 Codex 的多套 API 接入配置。切换通道、恢复固定基准、列出跨通道会话，并调用原生客户端续接。工具不提供 API 服务，也不附带可用的账户或密钥。
 
-发布版：**1.9.0** · Python **3.10+** · [MIT](LICENSE)
+发布版：**1.9.1** · Python **3.10+** · [MIT](LICENSE)
 
 ## 平台与客户端
 
@@ -39,7 +39,7 @@ $env:Path = "$HOME\bin;$env:Path"
 ai-switch --version
 ```
 
-Windows 安装生成原生 `ai-switch.exe`，可从 PowerShell 或 CMD 使用；Linux/macOS 使用 `ai-switch` 脚本入口。首次安装后将用户 `bin` 目录加入 PATH。默认数据位置仍为用户主目录下的 `.config/ai-switch`，保留旧版兼容。
+Windows 安装生成原生 `ai-switch.exe`，可从 PowerShell 或 CMD 使用；Linux/macOS 使用 `ai-switch` 脚本入口。入口固定使用安装时的基础 Python，避免被 PATH 中其他版本替换；移除该 Python 后需要重新安装工具。首次安装后将用户 `bin` 目录加入 PATH。默认数据位置仍为用户主目录下的 `.config/ai-switch`，保留旧版兼容。
 
 安装程序仅复制工具和依赖，不初始化、不切换配置。常用终端的启动文件中可加入 `export PATH="$HOME/bin:$PATH"`，让后续终端也找到命令。原生 `codex` / `claude` 需自行安装，只安装所选客户端即可。
 

@@ -85,6 +85,23 @@ class ManagerTests(unittest.TestCase):
   with patch.object(s.shutil,'which',return_value='/bin/codex'),patch.object(s.session_process,'ensure_available',side_effect=s.session_process.TakeoverError('timeout')):
    with self.assertRaises(s.session_process.TakeoverError):self.m.launch(args)
   for p,data in before.items():self.assertEqual(p.read_bytes(),data)
+ def test_bad_client_launcher_never_terminates_or_switches(self):
+  args=argparse.Namespace(app='codex',mode='aster',session=str(uuid.uuid4()),cwd=str(self.root),dry_run=False,client_args=[],takeover=True)
+  before={p:p.read_bytes() for p in (self.codex,self.claude,self.m.state_path)}
+  with patch.object(s.shutil,'which',return_value='/fixture/codex.cmd'),patch.object(s.platform_runtime,'native_command',side_effect=OSError('invalid launcher')),patch.object(s.session_process,'ensure_available',side_effect=AssertionError('must not terminate')):
+   with self.assertRaisesRegex(OSError,'invalid launcher'):self.m.launch(args)
+  for p,data in before.items():self.assertEqual(p.read_bytes(),data)
+ def test_python_upgrade_does_not_leave_managed_hooks_in_micu(self):
+  import shlex
+  original=self.m.read_config(self.m.load(),'claude')[1]
+  script=self.m.root/'assets/read_guard.py'
+  old=shlex.join(['/previous python/python3.10','-X','utf8',str(script)])
+  new=shlex.join(['/current python/python3.12','-X','utf8',str(script)])
+  with patch.object(self.m,'hook_command',return_value=old):
+   aster=json.loads(self.m.render('claude',original,self.m.profile('aster','claude'),'aster'))
+  with patch.object(self.m,'hook_command',return_value=new):
+   micu=json.loads(self.m.render('claude',aster,self.m.profile('micu','claude'),'micu'))
+  self.assertEqual(micu,original)
  def test_takeover_invalid_configuration_and_workdir_never_reach_process(self):
   args=argparse.Namespace(app='codex',mode='aster',session=str(uuid.uuid4()),cwd=str(self.root/'missing'),dry_run=False,client_args=[],takeover=True)
   with patch.object(s.session_process,'ensure_available',side_effect=AssertionError('no signals')):
