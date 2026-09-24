@@ -26,17 +26,45 @@ jobs:
         run: |
           import os, pathlib, subprocess, sys, tempfile
           root = pathlib.Path(tempfile.mkdtemp(prefix='ai-switch 空 格 '))
-          subprocess.run([sys.executable,'install.py','--bin-dir',str(root/'bin'),'--lib-dir',str(root/'lib')],check=True)
-          command = root/'bin'/('ai-switch.exe' if os.name == 'nt' else 'ai-switch')
-          subprocess.run([str(command),'--version'],check=True)
-          subprocess.run([str(command),'profile','template','aster','--app','codex'],check=True)
+          subprocess.run([sys.executable, 'install.py', '--bin-dir', str(root / 'bin'), '--lib-dir', str(root / 'lib')], check=True)
+          command = root / 'bin' / ('ai-switch.exe' if os.name == 'nt' else 'ai-switch')
+          subprocess.run([str(command), '--version'], check=True)
+          subprocess.run([str(command), 'profile', 'template', 'aster', '--app', 'codex'], check=True)
           if os.name != 'nt':
-              fake = root/'fake-python'; fake.mkdir()
-              interpreter = fake/'python3'
+              fake = root / 'fake-python'
+              fake.mkdir()
+              interpreter = fake / 'python3'
               interpreter.write_text('#!/bin/sh\nexit 91\n')
               interpreter.chmod(0o755)
-              env = dict(os.environ,PATH=str(fake)+os.pathsep+os.environ['PATH'])
-              subprocess.run([str(command),'--version'],env=env,check=True)
+              env = dict(os.environ, PATH=str(fake) + os.pathsep + os.environ['PATH'])
+              subprocess.run([str(command), '--version'], env=env, check=True)
+      - name: Build wheel and install package
+        shell: python
+        run: |
+          import os, pathlib, subprocess, sys
+          wheel_dir = pathlib.Path('dist/wheel')
+          wheel_dir.mkdir(parents=True, exist_ok=True)
+          subprocess.run([sys.executable, '-m', 'pip', 'install', 'distlib==0.3.9'], check=True)
+          subprocess.run([sys.executable, '-m', 'pip', 'wheel', '--no-deps', '-w', str(wheel_dir), '.'], check=True)
+          wheels = list(wheel_dir.glob('*.whl'))
+          if not wheels:
+              raise RuntimeError('No wheel built in dist/wheel')
+          subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-deps', str(wheels[0])], check=True)
+          subprocess.run(['ai-switch', '--version'], check=True)
+          subprocess.run(['ai-switch', 'profile', 'template', 'aster', '--app', 'codex'], check=True)
+      - name: Run test suite against installed package
+        shell: python
+        run: |
+          import os, pathlib, subprocess, sys, tempfile
+          repo = pathlib.Path.cwd().resolve()
+          tmp = pathlib.Path(tempfile.mkdtemp(prefix='ai-switch-installed-test-'))
+          env = dict(os.environ, AI_SWITCH_TEST_INSTALLED='1')
+          subprocess.run(
+              [sys.executable, '-m', 'unittest', 'discover', '-s', str(repo / 'tests'), '-t', str(repo), '-v'],
+              cwd=str(tmp),
+              env=env,
+              check=True,
+          )
       - run: python release.py
   native-clients:
     strategy:
@@ -47,6 +75,7 @@ jobs:
     timeout-minutes: 15
     env:
       PYTHONUTF8: '1'
+      AI_SWITCH_TEST_INSTALLED: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -56,7 +85,16 @@ jobs:
         with:
           node-version: '22'
       - run: python -m pip install -r requirements.txt zstandard==0.23.0
+      - name: Install ai-switch package from wheel
+        shell: python
+        run: |
+          import pathlib, subprocess, sys
+          wheel_dir = pathlib.Path('dist/wheel')
+          wheel_dir.mkdir(parents=True, exist_ok=True)
+          subprocess.run([sys.executable, '-m', 'pip', 'wheel', '--no-deps', '-w', str(wheel_dir), '.'], check=True)
+          wheels = list(wheel_dir.glob('*.whl'))
+          subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-deps', str(wheels[0])], check=True)
       - run: npm install -g @openai/codex@0.156.0 @anthropic-ai/claude-code@2.1.258
       - run: codex --version
       - run: claude --version
-      - run: python integration_native.py
+      - run: python tests/integration/native_clients.py

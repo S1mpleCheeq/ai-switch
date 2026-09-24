@@ -2,7 +2,7 @@
 
 本地管理 Claude Code 和 Codex 的多套 API 接入配置。切换通道、恢复固定基准、列出跨通道会话，并调用原生客户端续接。工具不提供 API 服务，也不附带可用的账户或密钥。
 
-发布版：**1.9.1** · Python **3.10+** · [MIT](LICENSE)
+发布版：**1.10.0** · Python **3.10+** · [MIT](LICENSE)
 
 ## 平台与客户端
 
@@ -77,11 +77,11 @@ ai-switch profile template aster --app codex
 ai-switch profile template aster --app claude
 ```
 
-模板文件位于 [`templates/aster/`](templates/aster/README.md)，只包含服务地址、教程模型及设置。凭据是 `__ASTERGATE_API_KEY__` 占位符；`init` 使用用户输入替换它，并把私密配置写到用户自己的机器。不能直接使用未填充的模板发起请求。
+模板文件位于 [`src/ai_switch/resources/templates/aster/`](src/ai_switch/resources/templates/aster/README.md)，只包含服务地址、教程模型及设置。凭据是 `__ASTERGATE_API_KEY__` 占位符；`init` 使用用户输入替换它，并把私密配置写到用户自己的机器。不能直接使用未填充的模板发起请求。
 
 模板保留教程的 Claude `ultracode` 与 Codex `ultra` 设置供参考。这些名称及 Gemini 子代理支持取决于客户端和服务端，**不代表每个任务必须启用，也不保证自动委派**。可以按自己的客户端能力调整 profile。
 
-模板不是教程所有示例或某台机器完整配置的逐字副本；推理强度示例、公共权限/存储设置和 hook 适配范围见[模板与教程的差异说明](templates/aster/README.md#与教程及完整配置的关系)。
+模板不是教程所有示例或某台机器完整配置的逐字副本；推理强度示例、公共权限/存储设置和 hook 适配范围见[模板与教程的差异说明](src/ai_switch/resources/templates/aster/README.md#与教程及完整配置的关系)。
 
 ## 切换与配置管理
 
@@ -161,3 +161,9 @@ ai-switch check --network           # 可选：使用自己的凭据检查模型
 本地私密文件存放在 `~/.config/ai-switch/`，包含明文凭据，Linux/macOS 目录权限 0700、文件 0600；Windows 使用仅当前用户、SYSTEM 和管理员可访问的 DACL；不要上传该目录。安装、测试与发布不需要作者的 API key。详见[凭据与发布边界](docs/security.md)及[发布流程](docs/releasing.md)。
 
 项目不隶属于 OpenAI、Anthropic、Micu 或 AsterGate。第三方模型别名、接口、证书与教程扩展可能变化。
+
+## 开发与模块结构
+
+源码统一维护在 `src/ai_switch/`，测试在 `tests/`。`Manager` 是兼容入口，实际操作由 profile、基准、存储、客户端、会话和平台服务负责，详见[架构与兼容性约束](docs/architecture.md)。
+
+公开源码、安装产物和用户状态目录分别管理。旧开发副本仅作为参考，修改和发布均在本仓库进行；升级现有工具不需要重新运行 `init`。

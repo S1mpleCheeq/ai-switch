@@ -11,13 +11,15 @@ python3 -m venv .venv
 .venv/bin/python release.py
 ```
 
+标准 Python wheel 可用 `.venv/bin/python -m pip wheel --no-deps -w dist/wheel .` 构建；版本从 `src/ai_switch/_version.py` 读取。wheel 包含运行代码和公开资源，依赖由安装环境提供。开发时可用 `.venv/bin/python -m pip install -e .`，源码与已安装包测试的区别见兼容性文档。
+
 打包工具只接受显式发布文件清单：源码、测试、公开模板、文档和许可。缺文件、符号链接或命中常见密钥形式时会失败。输出通用源码包以及 Linux/macOS `.tar.gz`、Windows `.zip` 三个平台源码安装包，每个附带 `.sha256`。平台包来自相同白名单，不包含其他系统机器上的私人文件。不要手动把整个工作目录或 HOME 打包。
 
 原生客户端集成验证是可选步骤，需要自行安装已支持版本的 CLI，默认自动生成合成测试模型目录，也可显式提供有效目录。测试使用临时配置、假密钥和本地模拟 API，不应使用真实服务凭据：
 
 ```bash
 .venv/bin/python -m pip install zstandard==0.23.0
-.venv/bin/python integration_native.py
+.venv/bin/python tests/integration/native_clients.py
 ```
 
 ## 发布到 GitHub
@@ -29,6 +31,15 @@ python3 -m venv .venv
 GitHub 也会按 tag 提供自动源码压缩包。远程地址、仓库可见性和正式发布由发布者决定；本工具不会自动创建远端仓库或上传。[GitHub Release 说明](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)
 
 ## 版本记录
+
+### 1.10.0
+
+- 整理为 `src/ai_switch` Python 包；CLI、profile、基准、事务存储、初始化、会话和启动分别由独立模块负责。
+- `Manager` 保留原有方法入口，服务通过组合协作；Claude JSON/hook 与 Codex TOML 的配置转换、专属校验移入客户端适配模块。
+- 明确平台进程分发与 Linux、macOS/Windows 后端，统一错误类型，清理不可达的旧平台分支。
+- 公开模板和 hook 改用包资源读取，测试移入 `tests/`，安装和发布使用统一包结构。
+- 保持命令参数、版本 1 状态格式、固定基准、事务回滚、会话修复和显式接管行为；既有安装升级无需重新初始化。
+- 原有回归用例全部保留，并以 1.9.1 的命令树快照校验参数、默认值和选项兼容性。设计与维护约束见[架构文档](architecture.md)。
 
 ### 1.9.1
 

@@ -2,7 +2,7 @@
 
 ## 操作系统与功能
 
-1.9.1 使用同一套核心逻辑和 profile 格式，通过系统适配层提供全部现有命令。Linux/macOS/Windows 分别提供源码安装包，仍需 Python 3.10+ 和所选原生客户端。
+1.10.0 使用同一套核心逻辑和 profile 格式，通过系统适配层提供全部现有命令。Linux/macOS/Windows 分别提供源码安装包，仍需 Python 3.10+ 和所选原生客户端。此次模块重构保持版本 1 的状态和基准格式，已有用户无需重复初始化。
 
 | 平台 | profile / 切换 / 基准 | 会话列表、原生续接、Codex 修复 | Codex `--takeover` |
 | --- | --- | --- | --- |
@@ -31,7 +31,9 @@ Windows 文件使用受保护 DACL，允许当前用户、SYSTEM、管理员访�
 
 工作流 `.github/workflows/ci.yml` 包含 Ubuntu、macOS、Windows × Python 3.10/3.12 六组单元测试及安装验证，另外有三个平台的原生客户端集成作业。2026-09-24 的 [九个 CI 作业全部通过](https://github.com/S1mpleCheeq/ai-switch/actions/runs/35970765128)：六组单元/安装测试，以及三个平台的真实原生客户端集成与接管测试。最终发布提交的状态可在 [GitHub Actions](https://github.com/S1mpleCheeq/ai-switch/actions) 查看。
 
-1.9.1 的 152 项测试按适用平台执行：Linux 接管测试在 Linux 执行；macOS/Windows 原生锁及接管测试在相应 runner 执行，其他平台跳过。测试覆盖配置事务回滚、profile CRUD、基准和资源校验、历史修复、Windows ACL、跨进程锁、真实子进程接管、参数传递、含空格/中文路径、安装入口与发布包边界。本次新增启动器失败时禁止接管、异常锁文件拒绝、Python 路径变更后的 hook 清理；CI 安装步骤另验证 PATH 中其他 Python 不会替换已安装入口的解释器。不能把 Linux 上模拟平台分支等同于其他系统上的执行。
+1.10.0 的 153 项测试保留 1.9.1 的全部 152 项用例，并增加原命令树的参数、默认值与选项兼容检查。Linux 接管测试在 Linux 执行；macOS/Windows 原生锁及接管测试在相应 runner 执行，其他平台跳过。测试覆盖配置事务回滚、profile CRUD、基准和资源校验、历史修复、Windows ACL、跨进程锁、真实子进程接管、参数传递、含空格/中文路径、安装入口与发布包边界。启动器预检查、异常锁拒绝、旧 hook 清理和 PATH 中不同 Python 的回归用例继续保留。
+
+同一套测试分别对源码和已安装 wheel 执行。安装模式从临时工作目录运行，并确认导入安装后的包，防止源码目录掩盖漏装模块或资源的问题。不能把 Linux 上模拟平台分支等同于其他系统上的执行。
 
 原生集成测试固定安装 Codex 0.156.0、Claude Code 2.1.258，使用临时 HOME/CODEX_HOME、合成模型目录、假密钥和本地模拟 Responses/Messages API。两客户端均执行新会话及四次跨 profile 续接；另让真实 Codex 进程持锁等待本地 API，验证接管预览、结束旧进程、写锁释放以及同 UUID 再次续接保留前文。
 

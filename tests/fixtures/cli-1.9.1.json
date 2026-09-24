@@ -1,0 +1,761 @@
+[
+  {
+    "command": [],
+    "actions": [
+      {
+        "dest": "state_dir",
+        "flags": [
+          "--state-dir"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "init"
+    ],
+    "actions": [
+      {
+        "dest": "app",
+        "flags": [
+          "--app"
+        ],
+        "nargs": null,
+        "default": "all",
+        "required": false,
+        "choices": [
+          "claude",
+          "codex",
+          "all"
+        ]
+      },
+      {
+        "dest": "claude_dir",
+        "flags": [
+          "--claude-dir"
+        ],
+        "nargs": null,
+        "default": "<HOME>/.claude",
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "codex_dir",
+        "flags": [
+          "--codex-dir"
+        ],
+        "nargs": null,
+        "default": "<HOME>/.codex",
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "catalog",
+        "flags": [
+          "--catalog"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "ca",
+        "flags": [
+          "--ca"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": null
+      },
+      {
+        "dest": "aster_key_env",
+        "flags": [
+          "--aster-key-env"
+        ],
+        "nargs": null,
+        "default": "ASTERGATE_API_KEY",
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "ask_api_key",
+        "flags": [
+          "--ask-api-key"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "use"
+    ],
+    "actions": [
+      {
+        "dest": "mode",
+        "flags": [],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": null
+      },
+      {
+        "dest": "app",
+        "flags": [
+          "--app"
+        ],
+        "nargs": null,
+        "default": "all",
+        "required": false,
+        "choices": [
+          "claude",
+          "codex",
+          "all"
+        ]
+      },
+      {
+        "dest": "dry_run",
+        "flags": [
+          "--dry-run"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "discard_changes",
+        "flags": [
+          "--discard-changes"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "baseline"
+    ],
+    "actions": []
+  },
+  {
+    "command": [
+      "baseline",
+      "list"
+    ],
+    "actions": []
+  },
+  {
+    "command": [
+      "baseline",
+      "status"
+    ],
+    "actions": [
+      {
+        "dest": "name",
+        "flags": [],
+        "nargs": "?",
+        "default": "micu",
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "baseline",
+      "protect"
+    ],
+    "actions": [
+      {
+        "dest": "name",
+        "flags": [],
+        "nargs": "?",
+        "default": "micu",
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "from_backup",
+        "flags": [
+          "--from-backup"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "baseline",
+      "restore"
+    ],
+    "actions": [
+      {
+        "dest": "name",
+        "flags": [],
+        "nargs": "?",
+        "default": "micu",
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "app",
+        "flags": [
+          "--app"
+        ],
+        "nargs": null,
+        "default": "all",
+        "required": false,
+        "choices": [
+          "claude",
+          "codex",
+          "all"
+        ]
+      },
+      {
+        "dest": "full_config",
+        "flags": [
+          "--full-config"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "dry_run",
+        "flags": [
+          "--dry-run"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "capture"
+    ],
+    "actions": [
+      {
+        "dest": "app",
+        "flags": [
+          "--app"
+        ],
+        "nargs": null,
+        "default": "all",
+        "required": false,
+        "choices": [
+          "claude",
+          "codex",
+          "all"
+        ]
+      }
+    ]
+  },
+  {
+    "command": [
+      "status"
+    ],
+    "actions": [
+      {
+        "dest": "json",
+        "flags": [
+          "--json"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "check"
+    ],
+    "actions": [
+      {
+        "dest": "network",
+        "flags": [
+          "--network"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "recover"
+    ],
+    "actions": []
+  },
+  {
+    "command": [
+      "sessions"
+    ],
+    "actions": [
+      {
+        "dest": "app",
+        "flags": [
+          "--app"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": [
+          "claude",
+          "codex"
+        ]
+      },
+      {
+        "dest": "limit",
+        "flags": [
+          "--limit"
+        ],
+        "nargs": null,
+        "default": 20,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "include_subagents",
+        "flags": [
+          "--include-subagents"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "repair-session"
+    ],
+    "actions": [
+      {
+        "dest": "session",
+        "flags": [],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": null
+      },
+      {
+        "dest": "app",
+        "flags": [
+          "--app"
+        ],
+        "nargs": null,
+        "default": "codex",
+        "required": false,
+        "choices": [
+          "codex"
+        ]
+      },
+      {
+        "dest": "dry_run",
+        "flags": [
+          "--dry-run"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "run"
+    ],
+    "actions": [
+      {
+        "dest": "app",
+        "flags": [],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": [
+          "claude",
+          "codex"
+        ]
+      },
+      {
+        "dest": "mode",
+        "flags": [
+          "--mode"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "session",
+        "flags": [
+          "--session"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "cwd",
+        "flags": [
+          "--cwd"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "no_auto_repair",
+        "flags": [
+          "--no-auto-repair"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "takeover",
+        "flags": [
+          "--takeover"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "dry_run",
+        "flags": [
+          "--dry-run"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "profile"
+    ],
+    "actions": []
+  },
+  {
+    "command": [
+      "profile",
+      "template"
+    ],
+    "actions": [
+      {
+        "dest": "name",
+        "flags": [],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": [
+          "aster"
+        ]
+      },
+      {
+        "dest": "app",
+        "flags": [
+          "--app"
+        ],
+        "nargs": null,
+        "default": "all",
+        "required": false,
+        "choices": [
+          "claude",
+          "codex",
+          "all"
+        ]
+      }
+    ]
+  },
+  {
+    "command": [
+      "profile",
+      "list"
+    ],
+    "actions": [
+      {
+        "dest": "json",
+        "flags": [
+          "--json"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "profile",
+      "show"
+    ],
+    "actions": [
+      {
+        "dest": "name",
+        "flags": [],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": null
+      },
+      {
+        "dest": "app",
+        "flags": [
+          "--app"
+        ],
+        "nargs": null,
+        "default": "all",
+        "required": false,
+        "choices": [
+          "claude",
+          "codex",
+          "all"
+        ]
+      }
+    ]
+  },
+  {
+    "command": [
+      "profile",
+      "add"
+    ],
+    "actions": [
+      {
+        "dest": "name",
+        "flags": [],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": null
+      },
+      {
+        "dest": "source",
+        "flags": [
+          "--from"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "profile",
+      "delete"
+    ],
+    "actions": [
+      {
+        "dest": "name",
+        "flags": [],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": null
+      }
+    ]
+  },
+  {
+    "command": [
+      "profile",
+      "edit"
+    ],
+    "actions": [
+      {
+        "dest": "name",
+        "flags": [],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": null
+      },
+      {
+        "dest": "app",
+        "flags": [
+          "--app"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": true,
+        "choices": [
+          "claude",
+          "codex"
+        ]
+      },
+      {
+        "dest": "base_url",
+        "flags": [
+          "--base-url"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "model",
+        "flags": [
+          "--model"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "effort",
+        "flags": [
+          "--effort"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "subagent_model",
+        "flags": [
+          "--subagent-model"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "clear_subagent",
+        "flags": [
+          "--clear-subagent"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "api_key_env",
+        "flags": [
+          "--api-key-env"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "ask_api_key",
+        "flags": [
+          "--ask-api-key"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "read_guard",
+        "flags": [
+          "--read-guard"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": [
+          "on",
+          "off"
+        ]
+      },
+      {
+        "dest": "ultracode",
+        "flags": [
+          "--ultracode"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": [
+          "on",
+          "off"
+        ]
+      },
+      {
+        "dest": "catalog",
+        "flags": [
+          "--catalog"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "clear_catalog",
+        "flags": [
+          "--clear-catalog"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "file",
+        "flags": [
+          "--file"
+        ],
+        "nargs": null,
+        "default": null,
+        "required": false,
+        "choices": null
+      },
+      {
+        "dest": "editor",
+        "flags": [
+          "--editor"
+        ],
+        "nargs": 0,
+        "default": false,
+        "required": false,
+        "choices": null
+      }
+    ]
+  }
+]
