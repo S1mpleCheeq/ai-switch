@@ -230,7 +230,8 @@ class ManagerTests(unittest.TestCase):
   c=json.loads(self.claude.read_text());c['model']='custom-saved';self.claude.write_text(json.dumps(c))
   self.cli('capture','--app','claude');self.assertEqual(self.m.profile('backup','claude')['values']['model'],'custom-saved')
   self.cli('capture','--app','codex');self.assertTrue(all(x['matches_profile'] for x in self.m.report()['apps'].values()))
-  output=self.cli('run','codex','--mode','backup','--dry-run');self.assertIn('model_provider="ai_switch_backup"',output)
+  with patch.object(s.shutil,'which',return_value='/bin/codex'):
+   output=self.cli('run','codex','--mode','backup','--dry-run');self.assertIn('ai_switch_backup',output)
  def test_check_includes_added_profiles(self):
   self.cli('profile','add','backup','--from','aster');p=self.m.profile('backup','codex');p['providers']['ai_switch_backup'].pop('experimental_bearer_token')
   s.atomic_write(self.m.profile_path('backup','codex'),s.json_bytes(p))
@@ -462,16 +463,18 @@ class ManagerTests(unittest.TestCase):
 
 class HookTests(unittest.TestCase):
  def test_gemini_bounds_only_preserves_other_fields(self):
-  with tempfile.NamedTemporaryFile(mode='w') as file:
-   file.write('one\ntwo\nthree\n');file.flush();p={'model':'gemini-3.8-flash-high','tool_name':'Read','hook_event_name':'PreToolUse','tool_input':{'file_path':file.name,'offset':900,'limit':2,'pages':'1'}}
+  with tempfile.TemporaryDirectory() as folder:
+   file=open(Path(folder)/'fixture','w',encoding='utf-8')
+   file.write('one\ntwo\nthree\n');file.close();p={'model':'gemini-3.8-flash-high','tool_name':'Read','hook_event_name':'PreToolUse','tool_input':{'file_path':file.name,'offset':900,'limit':2,'pages':'1'}}
    with patch.dict(os.environ,{'AI_SWITCH_MODE':'aster'}):
     out=read_guard.handle(p)['hookSpecificOutput']['updatedInput'];self.assertEqual(out,dict(p['tool_input'],offset=2))
     p['tool_input']['offset']=1;self.assertIsNone(read_guard.handle(p));p['model']='claude-fable-5-1';p['tool_input']['offset']=900;self.assertIsNone(read_guard.handle(p))
  def test_inherited_subagent_default_is_not_current_model(self):
   with patch.dict(os.environ,{'CLAUDE_CODE_SUBAGENT_MODEL':'gemini-3.8-flash-high','AI_SWITCH_MODE':'aster'}):self.assertIsNone(read_guard.handle({'tool_name':'Read','hook_event_name':'PostToolUse','tool_input':{'limit':20}}))
  def test_model_from_transcript_and_micu_disabled(self):
-  with tempfile.NamedTemporaryFile(mode='w') as file:
-   file.write(json.dumps({'type':'assistant','message':{'model':'gemini-3.8-flash-high'}})+'\n');file.flush();p={'transcript_path':file.name,'tool_name':'Read','hook_event_name':'PostToolUse','tool_input':{'limit':20}}
+  with tempfile.TemporaryDirectory() as folder:
+   file=open(Path(folder)/'fixture','w',encoding='utf-8')
+   file.write(json.dumps({'type':'assistant','message':{'model':'gemini-3.8-flash-high'}})+'\n');file.close();p={'transcript_path':file.name,'tool_name':'Read','hook_event_name':'PostToolUse','tool_input':{'limit':20}}
    with patch.dict(os.environ,{'AI_SWITCH_MODE':'aster'}):self.assertIn('additionalContext',read_guard.handle(p)['hookSpecificOutput'])
    with patch.dict(os.environ,{'AI_SWITCH_MODE':'micu'}):self.assertIsNone(read_guard.handle(p))
 if __name__=='__main__':unittest.main()

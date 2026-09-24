@@ -14,7 +14,7 @@ class ReleaseTests(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory(prefix='ai-switch-release-test-')
         self.addCleanup(tmp.cleanup)
-        self.root = Path(tmp.name)/'source'
+        self.root = Path(tmp.name).resolve()/'source'
         self.root.mkdir()
         source = Path(__file__).parent
         for name in release.FILES:

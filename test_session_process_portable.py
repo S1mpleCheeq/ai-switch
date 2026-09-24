@@ -24,7 +24,7 @@ class PortableProcessTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix='ai-switch-takeover-')
         self.addCleanup(temp.cleanup)
-        self.home = Path(temp.name)
+        self.home = Path(temp.name).resolve()
         (self.home/'thread-writer-locks').mkdir()
         self.session = str(uuid.uuid4())
         self.path = self.home/'thread-writer-locks'/(self.session+'.lock')

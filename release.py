@@ -12,7 +12,7 @@ import tarfile
 import zipfile
 
 FILES = (
-    '.gitignore', 'LICENSE', 'README.md', 'requirements.txt',
+    '.gitignore', '.gitattributes', 'LICENSE', 'README.md', 'requirements.txt',
     'ai_switch.py', 'session_repair.py', 'session_process.py', 'read_guard.py',
     'template_profiles.py', 'install.py', 'integration_native.py', 'release.py',
     'platform_io.py', 'platform_runtime.py', 'session_process_portable.py',
@@ -64,7 +64,7 @@ def collect(root):
 
 def build(root, output, platform=None):
     content = collect(root)
-    version = re.search(rb'^VERSION = "([0-9]+\.[0-9]+\.[0-9]+)"$', content['ai_switch.py'], re.M)
+    version = re.search(rb'^VERSION = "([0-9]+\.[0-9]+\.[0-9]+)"\r?$', content['ai_switch.py'], re.M)
     if not version:
         raise ValueError('无法读取发布版本。')
     prefix = 'ai-switch-'+version[1].decode()

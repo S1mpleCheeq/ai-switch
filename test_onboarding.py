@@ -18,7 +18,7 @@ class OnboardingTests(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory(prefix='ai-switch-onboarding-')
         self.addCleanup(tmp.cleanup)
-        self.root = Path(tmp.name)
+        self.root = Path(tmp.name).resolve()
         for app in s.APPS:
             (self.root/app).mkdir()
         self.ca = self.root/'ca.crt'

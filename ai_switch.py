@@ -1230,7 +1230,7 @@ class Manager:
             try:
                 uuid.UUID(path.stem)
                 cwd='';subagent=False
-                with path.open() as stream:
+                with path.open(encoding='utf-8') as stream:
                     for _, line in zip(range(30),stream):
                         item=json.loads(line)
                         subagent = subagent or bool(item.get('isSidechain'))

@@ -29,7 +29,7 @@ class ProcessTests(unittest.TestCase):
     def setUp(self):
         tmp=tempfile.TemporaryDirectory(prefix='ai-switch-process-test-')
         self.addCleanup(tmp.cleanup)
-        self.home=Path(tmp.name);(self.home/'thread-writer-locks').mkdir()
+        self.home=Path(tmp.name).resolve();(self.home/'thread-writer-locks').mkdir()
         self.session=str(uuid.uuid4())
         self.path=self.home/'thread-writer-locks'/(self.session+'.lock')
 

@@ -20,7 +20,7 @@ class SessionTests(unittest.TestCase):
         version.start(); self.addCleanup(version.stop)
         tmp = tempfile.TemporaryDirectory(prefix='ai-switch-session-unit-')
         self.addCleanup(tmp.cleanup)
-        self.root = Path(tmp.name)
+        self.root = Path(tmp.name).resolve()
         self.home = self.root/'codex'
         self.home.mkdir()
         self.m = s.Manager(self.root/'manager')
