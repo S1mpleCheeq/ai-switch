@@ -14,7 +14,7 @@ class PlatformIOTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='ai-switch-空 格-')
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
+        self.root = Path(self.tmp.name).resolve()
 
     def test_atomic_write_replacement_failure_preserves_original(self):
         path = self.root/'state'/'secret.json'

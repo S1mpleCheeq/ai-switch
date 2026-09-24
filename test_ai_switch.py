@@ -8,7 +8,7 @@ import read_guard
 
 class ManagerTests(unittest.TestCase):
  def setUp(self):
-  self.tmp=tempfile.TemporaryDirectory(prefix='ai-switch-unit-');self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
+  self.tmp=tempfile.TemporaryDirectory(prefix='ai-switch-unit-');self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name).resolve()
   for app in s.APPS:(self.root/app).mkdir()
   self.claude=self.root/'claude/settings.json';self.codex=self.root/'codex/config.toml'
   self.claude.write_text(json.dumps(dict(env={'ANTHROPIC_BASE_URL':'https://micu.example','ANTHROPIC_AUTH_TOKEN':'MICU_SECRET','ANTHROPIC_MODEL':'claude-sonnet-5','SHARED':'keep'},model='sonnet',effortLevel='high',permissions={'allow':[],'deny':['Read(.env)']},hooks={'PreToolUse':[{'matcher':'Read','hooks':[{'type':'command','command':'echo existing'}]}]})))

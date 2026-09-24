@@ -4,12 +4,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import argparse, contextlib, io, ssl, sys
 from unittest.mock import patch
 import ai_switch as switch
+import platform_runtime
 
 parser=argparse.ArgumentParser(description="Exercise installed native clients against local fake APIs; no real credentials.")
-parser.add_argument("--catalog",type=Path,required=True)
+parser.add_argument("--catalog",type=Path)
 args=parser.parse_args()
 os.umask(0o077)
-root=Path(tempfile.mkdtemp(prefix='ai-switch-native-'))
+root=Path(tempfile.mkdtemp(prefix='ai-switch-native-')).resolve()
+if args.catalog is None:
+ args.catalog=root/'fixture-catalog.json'
+ model=dict(display_name='Local fixture',description='Synthetic integration test model',default_reasoning_level='high',supported_reasoning_levels=[dict(effort=e,description=e) for e in ('low','medium','high','xhigh')],shell_type='unified_exec',visibility='list',supported_in_api=True,priority=1,base_instructions='Reply briefly. Do not use tools.',supports_reasoning_summaries=True,support_verbosity=True,default_verbosity='low',apply_patch_tool_type='freeform',truncation_policy=dict(mode='tokens',limit=10000),context_window=272000,effective_context_window_percent=95,experimental_supported_tools=[],input_modalities=['text'])
+ args.catalog.write_text(json.dumps(dict(models=[dict(model,slug=slug) for slug in ('gpt-6-astra','gemini-3.8-flash-high')])),encoding='utf-8')
 requests=[]
 class H(BaseHTTPRequestHandler):
  def log_message(self,*args): pass
@@ -18,7 +23,9 @@ class H(BaseHTTPRequestHandler):
  def do_POST(self):
   raw=self.rfile.read(int(self.headers.get('Content-Length',0)))
   if self.headers.get('Content-Encoding')=='gzip':raw=gzip.decompress(raw)
-  if self.headers.get('Content-Encoding')=='zstd':raw=subprocess.run(['zstd','-d','--stdout'],input=raw,capture_output=True,check=True).stdout
+  if self.headers.get('Content-Encoding')=='zstd':
+   import zstandard
+   raw=zstandard.ZstdDecompressor().stream_reader(io.BytesIO(raw)).read()
   d=json.loads(raw or '{}');requests.append((self.path,d))
   self.send_response(200);self.send_header('Content-Type','text/event-stream');self.send_header('Connection','close');self.end_headers()
   def emit(t,x):
@@ -42,8 +49,8 @@ class H(BaseHTTPRequestHandler):
   self.wfile.flush()
 server=ThreadingHTTPServer(('127.0.0.1',0),H);threading.Thread(target=server.serve_forever,daemon=True).start()
 base=f'http://127.0.0.1:{server.server_port}'
-env={k:v for k,v in os.environ.items() if k in ('PATH','LANG','TERM','SHELL')}
-env.update(HOME=str(root),CODEX_HOME=str(root/'codex'),CLAUDE_CONFIG_DIR=str(root/'claude'),ANTHROPIC_AUTH_TOKEN='fixture',CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1',DISABLE_AUTOUPDATER='1')
+env={k:v for k,v in os.environ.items() if k.upper() in ('PATH','LANG','TERM','SHELL','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','TEMP','TMP','PROGRAMFILES','PROGRAMFILES(X86)','PROGRAMDATA','CLAUDE_CODE_GIT_BASH_PATH')}
+env.update(HOME=str(root),USERPROFILE=str(root),APPDATA=str(root/'appdata'),LOCALAPPDATA=str(root/'localappdata'),PYTHONUTF8='1',CODEX_HOME=str(root/'codex'),CLAUDE_CONFIG_DIR=str(root/'claude'),ANTHROPIC_AUTH_TOKEN='fixture',CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1',DISABLE_AUTOUPDATER='1')
 (root/'codex').mkdir();(root/'claude').mkdir()
 (root/'codex/config.toml').write_text('model="gpt-6-astra"\nmodel_provider="micu"\nmodel_reasoning_effort="xhigh"\n[model_providers.micu]\nname="Micu"\nbase_url="'+base+'/micu/v1"\nwire_api="responses"\nexperimental_bearer_token="fixture"\n')
 (root/'claude/settings.json').write_text(json.dumps({'model':'sonnet','effortLevel':'high','env':{'ANTHROPIC_BASE_URL':'https://micu.example','ANTHROPIC_AUTH_TOKEN':'fixture','ANTHROPIC_DEFAULT_SONNET_MODEL':'claude-sonnet-5'}}))
@@ -66,16 +73,21 @@ manager.add_profile('backup-micu','micu')
 manager.add_profile('backup-aster','aster')
 
 def client_command(app,mode,sid=None):
- with patch.dict(os.environ,env,clear=True),patch.object(switch.os,'execvpe') as launch,patch.object(switch.os,'chdir'),contextlib.redirect_stdout(io.StringIO()):
+ with patch.dict(os.environ,env,clear=True),patch.object(switch.platform_runtime,'launch',return_value=0) as launch,patch.object(switch.os,'chdir'),contextlib.redirect_stdout(io.StringIO()):
   manager.launch(argparse.Namespace(app=app,mode=mode,session=sid,cwd=str(root),dry_run=False,client_args=[]))
- _,cmd,child_env=launch.call_args.args
- return cmd,child_env
+ cmd,child_env=launch.call_args.args
+ return platform_runtime.native_command(cmd),child_env
 
 def run(label,cmd,extra={}):
- p=subprocess.Popen(cmd,env=extra or env,cwd=root,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
+ p=subprocess.Popen(cmd,env=extra or env,cwd=root,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=os.name != "nt")
  try:out,err=p.communicate(timeout=45)
  except subprocess.TimeoutExpired:
-  os.killpg(p.pid,signal.SIGKILL);out,err=p.communicate();raise RuntimeError(label+' timed out '+err[-1500:])
+  if os.name == 'nt':
+   import psutil
+   for child in psutil.Process(p.pid).children(recursive=True): child.kill()
+   p.kill()
+  else:os.killpg(p.pid,signal.SIGKILL)
+  out,err=p.communicate();raise RuntimeError(label+' timed out '+err[-1500:])
  (root/(label+'.out')).write_text(out);(root/(label+'.err')).write_text(err)
  print(label,'exit',p.returncode,'requests',[(path,d.get('model')) for path,d in requests],flush=True)
  if p.returncode:raise RuntimeError(label+' failed: '+err[-2000:]+out[-1000:])
