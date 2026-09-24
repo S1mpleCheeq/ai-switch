@@ -111,7 +111,7 @@ class OnboardingTests(unittest.TestCase):
         ask.assert_called_once()
         self.assertEqual(self.m.profile('aster', 'codex')['providers']['aster']['experimental_bearer_token'], 'ASKED_FIXTURE')
         self.assertNotIn('ASKED_FIXTURE', self.cli('profile', 'show', 'aster'))
-        self.assertEqual(self.m.profile_path('aster', 'codex').stat().st_mode & 0o777, 0o600)
+        if os.name != 'nt':self.assertEqual(self.m.profile_path('aster', 'codex').stat().st_mode & 0o777, 0o600)
 
     def test_template_works_before_init_without_reading_state(self):
         with patch.object(s.Manager, 'load', side_effect=AssertionError('must not read state')):
@@ -121,9 +121,8 @@ class OnboardingTests(unittest.TestCase):
         with self.assertRaisesRegex(s.SwitchError, '占位符'):
             self.m.validate_profile('codex', value)
 
-    def test_native_windows_gets_helpful_error_but_templates_work(self):
+    def test_templates_work_independently_of_posix_lock_module(self):
         with patch.object(s, 'fcntl', None):
-            self.assertIn('WSL2', self.cli('status', expected=1))
             self.cli('profile', 'template', 'aster')
         self.assertFalse(self.m.root.exists())
 

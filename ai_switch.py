@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import copy
 import datetime as dt
 try:
@@ -30,11 +31,13 @@ import uuid
 import session_repair
 import session_process
 import template_profiles
+import platform_io
+import platform_runtime
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "vendor"))
 import tomlkit
 
-VERSION = "1.8.1"
+VERSION = "1.9.0"
 MODES = ("micu", "aster")  # Bootstrap templates; runtime profiles are discovered on disk.
 APPS = ("claude", "codex")
 CLAUDE_FIELDS = ("model", "effortLevel", "modelSettings", "ultracode", "enableArtifact",
@@ -58,28 +61,8 @@ def json_bytes(value):
     return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode()
 
 
-def private_dir(path):
-    path.mkdir(parents=True, exist_ok=True, mode=0o700)
-
-
-def atomic_write(path, content, mode=0o600):
-    private_dir(path.parent)
-    fd, temp = tempfile.mkstemp(prefix=".ai-switch-", dir=path.parent)
-    try:
-        os.fchmod(fd, mode)
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(content)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temp, path)
-        dir_fd = os.open(path.parent, os.O_DIRECTORY)
-        try:
-            os.fsync(dir_fd)
-        finally:
-            os.close(dir_fd)
-    finally:
-        if os.path.exists(temp):
-            os.unlink(temp)
+private_dir = platform_io.private_dir
+atomic_write = platform_io.atomic_write
 
 
 def claude_env_key(key):
@@ -154,7 +137,7 @@ class Manager:
     def load(self):
         if not self.state_path.exists():
             raise SwitchError("尚未初始化；请先运行 ai-switch init。")
-        state = json.loads(self.state_path.read_text())
+        state = json.loads(self.state_path.read_text(encoding='utf-8'))
         if state.get("version") != 1:
             raise SwitchError("不支持的 ai-switch 状态版本。")
         pending = self.root / "pending.json"
@@ -162,18 +145,13 @@ class Manager:
             raise SwitchError("发现未完成的切换。请先运行 ai-switch recover。")
         return state
 
+    @contextlib.contextmanager
     def lock(self):
-        if fcntl is None:
-            raise SwitchError('原生 Windows 暂不支持配置管理；请在 WSL2 内安装并运行。')
-        private_dir(self.root)
-        handle = open(self.root / "lock", "a")
-        os.chmod(self.root / "lock", 0o600)
         try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with platform_io.configuration_lock(self.root / 'lock') as handle:
+                yield handle
         except BlockingIOError:
-            handle.close()
             raise SwitchError("另一个 ai-switch 正在切换配置。") from None
-        return handle
 
     def apps(self, state=None, requested='all'):
         state = self.load() if state is None else state
@@ -190,7 +168,7 @@ class Manager:
         path = self.profile_path(mode, app)
         if not path.is_file():
             raise SwitchError(f'配置 {mode} 缺少 {app}；用 ai-switch profile list 查看已有配置。')
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding='utf-8'))
         return self.normalize_profile(mode, app, data)
 
     def normalize_profile(self, mode, app, data):
@@ -224,7 +202,7 @@ class Manager:
             for mode in self.profile_names():
                 path = self.profile_path(mode, 'codex')
                 if path.exists():
-                    names.update(json.loads(path.read_text()).get('providers', {}))
+                    names.update(json.loads(path.read_text(encoding='utf-8')).get('providers', {}))
         return names
 
     def validate_profile(self, app, data):
@@ -334,7 +312,7 @@ class Manager:
         manifest = directory/'original-manifest.json'
         if not manifest.exists():
             raise SwitchError('旧版原始快照尚未固定凭据与校验值；请先运行 ai-switch baseline protect。')
-        document = json.loads(manifest.read_text())
+        document = json.loads(manifest.read_text(encoding='utf-8'))
         hashes = document.get('files', {})
         apps = self.apps()
         required = {'original-profiles.json'} | {app + ('.json' if app == 'claude' else '.toml') for app in apps}
@@ -346,7 +324,7 @@ class Manager:
             path = directory/name
             if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
                 raise SwitchError(f'原始基准文件缺失或已被修改：{name}；拒绝恢复。')
-        profiles = json.loads((directory/'original-profiles.json').read_text())
+        profiles = json.loads((directory/'original-profiles.json').read_text(encoding='utf-8'))
         if set(profiles) != set(apps):
             raise SwitchError('原始基准必须包含全部已初始化客户端。')
         for app, profile in profiles.items():
@@ -366,7 +344,7 @@ class Manager:
                 path = self.root/'baseline'/(app + ('.json' if app == 'claude' else '.toml'))
                 if path.is_symlink():
                     raise SwitchError('原始快照不能是符号链接。')
-                config = json.loads(path.read_bytes()) if app == 'claude' else tomlkit.parse(path.read_text())
+                config = json.loads(path.read_bytes()) if app == 'claude' else tomlkit.parse(path.read_text(encoding='utf-8'))
                 original = self.capture(app, config)
                 saved = self.profile('micu', app)
                 if original != self.expected_capture(app, saved):
@@ -474,7 +452,7 @@ class Manager:
             raise SwitchError(f'{name} 尚无完整固定基准；用 ai-switch baseline protect {name} 创建。')
         if snapshot.is_symlink() or manifest.is_symlink():
             raise SwitchError('基准文件不能是符号链接。')
-        document = json.loads(manifest.read_text())
+        document = json.loads(manifest.read_text(encoding='utf-8'))
         payload = snapshot.read_bytes()
         if (not isinstance(document, dict) or document.get('version') != 1 or document.get('name') != name
                 or document.get('sha256') != hashlib.sha256(payload).hexdigest()):
@@ -516,7 +494,7 @@ class Manager:
                 backup = Path(from_backup).expanduser().resolve()
                 if not backup.is_relative_to(self.root/'backups') or not backup.is_dir():
                     raise SwitchError('--from-backup 须指向本管理目录下的备份子目录。')
-                items = json.loads((backup/'snapshot.json').read_text())
+                items = json.loads((backup/'snapshot.json').read_text(encoding='utf-8'))
                 profiles = {}
                 for app in self.apps(state):
                     matches = [item for item in items if item['path'] == str(self.profile_path(name, app)) and item['exists']]
@@ -673,19 +651,20 @@ class Manager:
             if args.editor and changes:
                 raise SwitchError('--editor 不能和其他修改参数一起使用。')
             if args.file:
-                profile = json.loads(Path(args.file).expanduser().read_text())
+                profile = json.loads(Path(args.file).expanduser().read_text(encoding='utf-8'))
             elif args.editor or not changes:
                 if not sys.stdin.isatty():
                     raise SwitchError('交互编辑需要终端；也可使用 --base-url / --model / --file 等参数。')
-                editor = os.environ.get('VISUAL') or os.environ.get('EDITOR') or 'vi'
+                editor = platform_runtime.editor_command()
                 fd, temporary = tempfile.mkstemp(prefix=f'.edit-{name}-', suffix='.json', dir=self.root)
                 try:
                     with os.fdopen(fd, 'wb') as stream:
+                        platform_io.protect_file(temporary)
                         stream.write(json_bytes(profile))
-                    command = shlex.split(editor)
+                    command = editor
                     if not command or subprocess.run([*command, temporary]).returncode:
                         raise SwitchError('编辑器退出失败，配置未更新。')
-                    profile = json.loads(Path(temporary).read_text())
+                    profile = json.loads(Path(temporary).read_text(encoding='utf-8'))
                 finally:
                     Path(temporary).unlink(missing_ok=True)
             else:
@@ -750,7 +729,7 @@ class Manager:
             values['ultracode'] = args.ultracode == 'on'
         if args.catalog is not None:
             path = Path(args.catalog).expanduser().resolve()
-            doc = json.loads(path.read_text())
+            doc = json.loads(path.read_text(encoding='utf-8'))
             if not isinstance(doc, dict) or not isinstance(doc.get('models'), list):
                 raise SwitchError('model catalog 须包含 models 数组。')
             values['model_catalog_json'] = str(path)
@@ -787,7 +766,8 @@ class Manager:
         return data, value
 
     def hook_command(self):
-        return "python3 " + shlex.quote(str(self.root / "assets/read_guard.py"))
+        return (platform_runtime.hook_command(self.root / "assets/read_guard.py") if os.name == "nt"
+                else "python3 " + shlex.quote(str(self.root / "assets/read_guard.py")))
 
     def clean_hooks(self, hooks):
         result = copy.deepcopy(hooks)
@@ -990,11 +970,7 @@ class Manager:
             for path, content in files.items():
                 if content is None:
                     path.unlink(missing_ok=True)
-                    fd = os.open(path.parent, os.O_DIRECTORY)
-                    try:
-                        os.fsync(fd)
-                    finally:
-                        os.close(fd)
+                    platform_io.sync_directory(path.parent)
                 else:
                     atomic_write(path, content)
             state['last_backup'] = str(backup)
@@ -1019,8 +995,8 @@ class Manager:
             if not journal.exists():
                 print('没有待恢复的切换。')
                 return
-            backup = Path(json.loads(journal.read_text())['backup'])
-            self.restore_snapshot(json.loads((backup/'snapshot.json').read_text()))
+            backup = Path(json.loads(journal.read_text(encoding='utf-8'))['backup'])
+            self.restore_snapshot(json.loads((backup/'snapshot.json').read_text(encoding='utf-8')))
             journal.unlink()
         print('已恢复到未完成切换之前。')
 
@@ -1085,7 +1061,7 @@ class Manager:
         for path in (self.root/'repairs').glob('*.json'):
             if path.is_symlink():
                 continue
-            value = json.loads(path.read_text())
+            value = json.loads(path.read_text(encoding='utf-8'))
             if path.stem != value.get('id'):
                 continue
             manifests.append(value)
@@ -1146,7 +1122,7 @@ class Manager:
                 if upgrade:
                     if manifest_path.is_symlink():
                         raise SwitchError('副本来源记录经过符号链接，未修改会话。')
-                    saved = json.loads(manifest_path.read_text())
+                    saved = json.loads(manifest_path.read_text(encoding='utf-8'))
                     if saved.get('id') != session or saved.get('version') not in (1, 2, 3):
                         raise SwitchError('修复副本的来源记录无效，未修改会话。')
                     if automatic or history_mode == 'paginated' or saved.get('history_mode') == 'paginated':
@@ -1202,7 +1178,7 @@ class Manager:
     def pending_repaired_sessions(self, known_ids, include_subagents=False):
         result = []
         for path in (self.root/'repairs').glob('*.json'):
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding='utf-8'))
             if (data['id'] not in known_ids and Path(data['rollout_path']).is_file()
                     and (include_subagents or not data.get('subagent'))):
                 result.append(dict(id=data['id'],cwd=data['cwd'],provider=data['provider'],name=data['name'],
@@ -1374,13 +1350,13 @@ class Manager:
         cmd+=tail
         print(f'{args.app} / {mode} / {profile["values"]["model"]}，目录 {cwd}',flush=True)
         if args.dry_run:
-            print(shlex.join(cmd)); return
+            print(platform_runtime.display_command(cmd)); return
         if args.app == 'codex' and session:
             # If someone else claimed it meanwhile, stop rather than terminating
             # an additional process. Native Codex also enforces its writer lock.
             session_process.ensure_available(Path(state['paths']['codex']).parent, session)
         os.chdir(cwd)
-        os.execvpe(cmd[0],cmd,env)
+        return platform_runtime.launch(cmd, env)
 
     def check(self, network=False):
         report=self.report()
@@ -1447,7 +1423,7 @@ def parser():
         description='统一管理 Claude Code 和 Codex 的多套接入配置，支持切换及续接已有会话。\n'
                     '切换对当前用户全局生效，不限当前目录；新启动的客户端生效。\n'
                     '本页列出全部一级命令和常用示例；完整参数见 ai-switch 命令 --help。\n'
-                    'Linux 为验证平台；macOS 基础功能实验性；Windows 请使用 WSL2。',
+                    '支持 Linux、macOS 和原生 Windows；平台包共享命令和 profile 格式。',
         epilog='''常用命令：
   ai-switch status                          查看当前使用的配置
   ai-switch profile list                    列出全部配置
@@ -1476,7 +1452,7 @@ def parser():
                                              预览旧进程接管，不发送退出信号
   ai-switch run codex --session UUID --takeover
                                              结束持锁旧进程，释放后再续接
-  接管最多等待 15 秒，不自动强杀；旧进程的未完成请求可能中断。
+  接管最多等待 15 秒：Linux/macOS 发 SIGTERM；Windows 结束核实过的单个进程。未完成请求可能中断。
 
 其他常用选项（完整说明见对应子命令 --help）：
   run --no-auto-repair                      跳过修复及副本复用，直接续接指定 UUID
@@ -1623,7 +1599,7 @@ def parser():
     p.add_argument('--session', metavar='UUID', help='要续接的会话 ID；省略则新开会话')
     p.add_argument('--cwd', metavar='目录', help='工作目录；续接默认使用原会话目录，新会话默认当前目录')
     p.add_argument('--no-auto-repair', action='store_true', help='跳过 Codex/Aster 启动前修复及副本复用，直接续接指定 UUID')
-    p.add_argument('--takeover', action='store_true', help='仅 Linux 上的 Codex + UUID：向持锁旧进程发送 SIGTERM，退出并释放写锁后续接；可能中断正在执行的任务')
+    p.add_argument('--takeover', action='store_true', help='Codex + UUID：核实并结束持锁旧进程，释放写锁后续接；Windows 使用进程终止，未保存工作可能中断')
     p.add_argument('--dry-run', action='store_true', help='预览接管、切换、自动修复和启动命令，不发送信号或写入会话/配置')
 
     p = sp.add_parser('profile', help='管理配置及公开模板：列出、查看、新增、修改、删除',
@@ -1714,9 +1690,6 @@ def main(argv=None):
         content = {app: template_profiles.template(app) for app in selected}
         print(json.dumps(content if args.app == 'all' else content[args.app], ensure_ascii=False, indent=2))
         return 0
-    if fcntl is None or os.name == 'nt':
-        print('ai-switch: 原生 Windows 暂不支持配置管理；请在 WSL2 内安装本工具及原生客户端。', file=sys.stderr)
-        return 1
     manager=Manager(args.state_dir)
     try:
         if args.command=='init':manager.init(args)
@@ -1742,7 +1715,7 @@ def main(argv=None):
                 marker = ' [subagent]' if item.get('subagent') else ''
                 print(f'{item["id"]}  {item["provider"]}{marker}  {item["cwd"]}  {item["name"][:60]}')
         elif args.command=='repair-session':manager.repair_session(args.session,args.app,args.dry_run)
-        elif args.command=='run':manager.launch(args)
+        elif args.command=='run':return manager.launch(args) or 0
         elif args.command=='profile':
             if args.profile_command=='list':
                 rows=manager.list_profiles()

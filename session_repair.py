@@ -14,6 +14,8 @@ from pathlib import Path
 import sqlite3
 import re
 import subprocess
+import shutil
+import platform_runtime
 import uuid
 
 
@@ -29,7 +31,7 @@ PREFIXES = {'message': 'msg_', 'reasoning': 'rs_', 'function_call': 'fc_',
 def native_history_mode():
     """Use the format required by 0.156's native prompt revert operation."""
     try:
-        result = subprocess.run(['codex', '--version'], capture_output=True, text=True,
+        result = subprocess.run(platform_runtime.native_command([shutil.which('codex') or 'codex', '--version']), capture_output=True, text=True,
                                 timeout=10, check=True)
     except (OSError, subprocess.SubprocessError):
         return 'legacy'

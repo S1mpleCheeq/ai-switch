@@ -156,8 +156,13 @@ def validate_owner(held, identity):
 def ensure_available(codex_home, session, *, takeover=False, dry_run=False,
                      timeout=15.0, emit=print):
     """Return True only for a dry-run plan to terminate a currently live owner."""
-    if takeover and sys.platform != 'linux':
-        raise TakeoverError('--takeover 仅支持 Linux；请退出占用会话的旧客户端，再原生续接。')
+    if sys.platform != 'linux':
+        import session_process_portable as portable
+        try:
+            return portable.ensure_available(codex_home, session, takeover=takeover,
+                dry_run=dry_run, timeout=timeout, emit=emit)
+        except portable.TakeoverError as exc:
+            raise TakeoverError(str(exc)) from None
     held = writer(codex_home, session)
     if held is None:
         return False

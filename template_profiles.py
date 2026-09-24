@@ -11,7 +11,7 @@ def template(app):
     if app not in ('claude', 'codex'):
         raise ValueError('Unknown template client')
     path = Path(__file__).with_name('templates')/'aster'/f'{app}.json'
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding='utf-8'))
 
 
 def render(app, key, assets):

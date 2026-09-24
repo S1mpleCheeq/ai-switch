@@ -146,23 +146,12 @@ class ProcessTests(unittest.TestCase):
                 process.ensure_available(self.home,self.session,takeover=True)
         self.assertIsNone(child.poll())
 
-    def test_macos_busy_detection_never_reads_linux_proc(self):
-        child=self.holder()
-        with patch.object(process.sys,'platform','darwin'),patch.object(process,'kernel_locks',side_effect=AssertionError('no proc')):
-            held=process.writer(self.home,self.session)
-            self.assertIsNone(held.pid)
-            with self.assertRaisesRegex(process.TakeoverError,'当前平台不支持自动接管'):
-                process.ensure_available(self.home,self.session)
-            with self.assertRaisesRegex(process.TakeoverError,'仅支持 Linux'):
-                process.ensure_available(self.home,self.session,takeover=True)
-        self.assertIsNone(child.poll())
-
-    def test_macos_free_session_resumes_but_takeover_is_rejected(self):
-        self.path.write_text('')
-        with patch.object(process.sys,'platform','darwin'),patch.object(process,'kernel_locks',side_effect=AssertionError('no proc')):
-            self.assertFalse(process.ensure_available(self.home,self.session))
-            with self.assertRaisesRegex(process.TakeoverError,'仅支持 Linux'):
-                process.ensure_available(self.home,self.session,takeover=True,dry_run=True)
+    def test_non_linux_dispatches_to_native_backend(self):
+        import session_process_portable as portable
+        with patch.object(process.sys,'platform','darwin'), patch.object(portable,'ensure_available',return_value=False) as native:
+            self.assertFalse(process.ensure_available(self.home,self.session,takeover=True))
+        native.assert_called_once()
+        self.assertTrue(native.call_args.kwargs['takeover'])
 
 
 if __name__=='__main__':unittest.main()

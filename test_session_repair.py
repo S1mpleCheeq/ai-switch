@@ -1,3 +1,4 @@
+import os
 import contextlib
 import argparse
 import io
@@ -141,7 +142,7 @@ class SessionTests(unittest.TestCase):
         manifest=json.loads(next((self.m.root/'repairs').glob('*.json')).read_text())
         self.assertIn(manifest['id'],output);self.assertEqual(source.read_bytes(),original)
         self.assertEqual((self.home/'state_5.sqlite').read_bytes(),database)
-        self.assertEqual(Path(manifest['rollout_path']).stat().st_mode&0o777,0o600)
+        if os.name != 'nt':self.assertEqual(Path(manifest['rollout_path']).stat().st_mode&0o777,0o600)
         self.assertEqual(self.m.sessions('codex',1)[0]['id'],manifest['id'])
         self.assertEqual(self.m.sessions('codex',1)[0]['cwd'],str(self.root))
 
@@ -387,10 +388,10 @@ class SessionTests(unittest.TestCase):
               patch.object(self.m,'use'),
               patch.object(self.m,'report',return_value=dict(apps={a:dict(matches_profile=True) for a in s.APPS})),
               patch.object(s.shutil,'which',return_value='/bin/'+app),
-              patch.object(s.os,'chdir'),patch.object(s.os,'execvpe') as execute,
+              patch.object(s.os,'chdir'),patch.object(s.platform_runtime,'launch',return_value=0) as execute,
               contextlib.redirect_stdout(out)):
             self.m.launch(args)
-        return out.getvalue(), execute.call_args.args[1] if execute.called else None
+        return out.getvalue(), execute.call_args.args[0] if execute.called else None
 
     def test_auto_launch_repairs_original_and_selects_new_uuid(self):
         tid,path=self.add_thread(self.modern_messages());before=path.read_bytes()
@@ -478,13 +479,13 @@ class SessionTests(unittest.TestCase):
         self.assertFalse((self.m.root/'repairs').exists())
 
     def test_no_auto_repair_cli_flag_is_parsed(self):
-        with patch.object(s.Manager,'launch') as launch:
+        with patch.object(s.Manager,'launch',return_value=0) as launch:
             self.cli('run','codex','--session',str(uuid.uuid4()),'--no-auto-repair')
         self.assertTrue(launch.call_args.args[0].no_auto_repair)
 
     def test_takeover_cli_flag_is_parsed_but_not_passed_to_codex(self):
         tid,_=self.add_thread([self.message('msg_valid')])
-        with patch.object(s.Manager,'launch') as launch:
+        with patch.object(s.Manager,'launch',return_value=0) as launch:
             self.cli('run','codex','--session',tid,'--takeover')
         self.assertTrue(launch.call_args.args[0].takeover)
         with patch.object(s.session_process,'ensure_available',return_value=False) as guard:

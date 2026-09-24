@@ -1,3 +1,4 @@
+import os
 import argparse, contextlib, io, json, os, ssl, tempfile, unittest, uuid
 from pathlib import Path
 from unittest.mock import patch
@@ -65,15 +66,15 @@ class ManagerTests(unittest.TestCase):
  def test_secrets_private_and_status_redacted(self):
   self.use('aster')
   for file in self.m.root.rglob('*'):
-   if file.is_file():self.assertEqual(file.stat().st_mode&0o777,0o600)
+   if file.is_file() and os.name != "nt":self.assertEqual(file.stat().st_mode&0o777,0o600)
   report=json.dumps(self.m.report())
   for key in ['ASTER_SECRET','MICU_SECRET']:self.assertNotIn(key,report)
  def test_launch_native_resume_overrides(self):
   sid=str(uuid.uuid4())
   for app in s.APPS:
    args=argparse.Namespace(app=app,mode='micu',session=sid,cwd=str(self.root),dry_run=False,client_args=[])
-   with patch.object(s.shutil,'which',return_value='/bin/'+app),patch.object(s.os,'chdir'),patch.object(s.os,'execvpe') as launch,contextlib.redirect_stdout(io.StringIO()),patch.dict(os.environ,{'ANTHROPIC_BASE_URL':'https://wrong','CLAUDE_CODE_OAUTH_TOKEN':'wrong','CLAUDE_CODE_SUBAGENT_MODEL':'gemini-3.8-flash-high'}):self.m.launch(args)
-   _,cmd,env=launch.call_args.args;self.assertIn(sid,cmd);self.assertNotIn('CLAUDE_CODE_OAUTH_TOKEN',env);self.assertNotIn('CLAUDE_CODE_SUBAGENT_MODEL',env)
+   with patch.object(s.shutil,'which',return_value='/bin/'+app),patch.object(s.os,'chdir'),patch.object(s.platform_runtime,'launch',return_value=0) as launch,contextlib.redirect_stdout(io.StringIO()),patch.dict(os.environ,{'ANTHROPIC_BASE_URL':'https://wrong','CLAUDE_CODE_OAUTH_TOKEN':'wrong','CLAUDE_CODE_SUBAGENT_MODEL':'gemini-3.8-flash-high'}):self.m.launch(args)
+   cmd,env=launch.call_args.args;self.assertIn(sid,cmd);self.assertNotIn('CLAUDE_CODE_OAUTH_TOKEN',env);self.assertNotIn('CLAUDE_CODE_SUBAGENT_MODEL',env)
    if app=='codex':self.assertIn('model_provider="micu"',cmd);self.assertEqual(env['MICU_FIXTURE_KEY'],'MICU_SECRET')
    else:
     overlay=json.loads((self.m.root/'runtime/claude-micu.json').read_text());self.assertFalse(overlay['ultracode']);self.assertEqual(env['ANTHROPIC_BASE_URL'],'https://micu.example')
@@ -98,9 +99,9 @@ class ManagerTests(unittest.TestCase):
   original=global_config.read_bytes()
   state=self.m.load();state['paths']['claude']=str(settings);s.atomic_write(self.m.state_path,s.json_bytes(state))
   args=argparse.Namespace(app='claude',mode='micu',session=None,cwd=str(self.root),dry_run=False,client_args=[])
-  with patch.object(s.Path,'home',return_value=fake_home),patch.object(s.shutil,'which',return_value='/bin/claude'),patch.object(s.os,'chdir'),patch.object(s.os,'execvpe') as launch,contextlib.redirect_stdout(io.StringIO()),patch.dict(os.environ,{'CLAUDE_CONFIG_DIR':str(self.root/'unrelated')}):
+  with patch.object(s.Path,'home',return_value=fake_home),patch.object(s.shutil,'which',return_value='/bin/claude'),patch.object(s.os,'chdir'),patch.object(s.platform_runtime,'launch',return_value=0) as launch,contextlib.redirect_stdout(io.StringIO()),patch.dict(os.environ,{'CLAUDE_CONFIG_DIR':str(self.root/'unrelated')}):
    self.m.launch(args)
-  self.assertNotIn('CLAUDE_CONFIG_DIR',launch.call_args.args[2])
+  self.assertNotIn('CLAUDE_CONFIG_DIR',launch.call_args.args[1])
   self.assertEqual(global_config.read_bytes(),original)
   self.assertFalse((claude_dir/'.claude.json').exists())
  def test_integrity_check_detects_asset_change(self):
@@ -219,7 +220,7 @@ class ManagerTests(unittest.TestCase):
   self.cli('profile','edit','backup','--app','claude','--file',str(file));self.assertEqual(self.m.profile('backup','claude')['values']['model'],'claude-import')
   file.write_text(json.dumps({'bad':'invalid'}));self.cli('profile','edit','backup','--app','claude','--file',str(file),expected=1)
   def editor(cmd):
-   self.assertEqual(Path(cmd[-1]).stat().st_mode&0o777,0o600)
+   if os.name != "nt":self.assertEqual(Path(cmd[-1]).stat().st_mode&0o777,0o600)
    p=json.loads(Path(cmd[-1]).read_text());p['values']['model']='claude-editor';Path(cmd[-1]).write_text(json.dumps(p))
    return argparse.Namespace(returncode=0)
   with patch.object(s.sys.stdin,'isatty',return_value=True),patch.object(s.subprocess,'run',side_effect=editor):self.cli('profile','edit','backup','--app','claude')
@@ -262,9 +263,9 @@ class ManagerTests(unittest.TestCase):
  def test_launch_reconciles_effort_change_for_same_profile(self):
   self.use('aster');d=tomlkit.parse(self.codex.read_text());d['model_reasoning_effort']='xhigh';self.codex.write_text(tomlkit.dumps(d))
   args=argparse.Namespace(app='codex',mode='aster',session=None,cwd=str(self.root),dry_run=False,client_args=[])
-  with patch.object(s.shutil,'which',return_value='/bin/codex'),patch.object(s.os,'chdir'),patch.object(s.os,'execvpe') as launch,contextlib.redirect_stdout(io.StringIO()):self.m.launch(args)
+  with patch.object(s.shutil,'which',return_value='/bin/codex'),patch.object(s.os,'chdir'),patch.object(s.platform_runtime,'launch',return_value=0) as launch,contextlib.redirect_stdout(io.StringIO()):self.m.launch(args)
   self.assertEqual(tomlkit.parse(self.codex.read_text())['model_reasoning_effort'],'ultra')
-  self.assertIn('model_reasoning_effort="ultra"',launch.call_args.args[1])
+  self.assertIn('model_reasoning_effort="ultra"',launch.call_args.args[0])
  def test_force_switch_backs_up_credential_drift_and_keeps_profile(self):
   self.use('aster');profile=self.m.profile_path('aster','codex').read_bytes()
   d=tomlkit.parse(self.codex.read_text());d['model_providers']['aster']['experimental_bearer_token']='UNSAVED_SECRET';self.codex.write_text(tomlkit.dumps(d))
