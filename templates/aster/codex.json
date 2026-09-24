@@ -1,0 +1,25 @@
+{
+  "values": {
+    "model_provider": "aster",
+    "model": "gpt-6-astra",
+    "model_reasoning_effort": "ultra",
+    "model_catalog_json": "__MODEL_CATALOG__"
+  },
+  "agents": {
+    "default_subagent_model": "gemini-3.8-flash-high",
+    "default_subagent_reasoning_effort": "high"
+  },
+  "providers": {
+    "aster": {
+      "name": "OpenAI",
+      "base_url": "https://aster.empeirion.cn:44444/v1",
+      "wire_api": "responses",
+      "requires_openai_auth": false,
+      "experimental_bearer_token": "__ASTERGATE_API_KEY__"
+    }
+  },
+  "launch_env": {},
+  "options": {
+    "ca_file": "__ASTERGATE_CA__"
+  }
+}

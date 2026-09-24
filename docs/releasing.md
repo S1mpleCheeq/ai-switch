@@ -1,0 +1,44 @@
+# 本地准备与发布
+
+本仓库按 MIT 许可分发；安装时带入的 tomlkit 保留其单独许可证。原生 Codex、Claude Code 及第三方模型目录不包含在本源码包中。
+
+## 验证与打包
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m unittest -q
+.venv/bin/python release.py
+```
+
+打包工具只接受显式发布文件清单：源码、测试、公开模板、文档和许可。缺文件、符号链接或命中常见密钥形式时会失败。输出 `dist/ai-switch-VERSION.tar.gz` 和对应 `.sha256`。不要手动把整个工作目录或 HOME 打包。
+
+原生客户端集成验证是可选步骤，需要自行安装已支持版本的 CLI，并提供有效的模型目录。测试使用临时配置、假密钥和本地模拟 API，不应使用真实服务凭据：
+
+```bash
+.venv/bin/python integration_native.py --catalog /absolute/path/model-catalog.json
+```
+
+## 发布到 GitHub
+
+1. 审核 `git status` 和 `git diff --cached`；确认没有用户配置、会话、真实密钥或个人诊断记录。
+2. 将此独立项目仓库推送到自己的 GitHub 仓库，不要把包含其他工作项目的父目录作为仓库根。
+3. 为经过测试的提交创建版本 tag，再创建对应 Release，上传源码包和 SHA256 文件，描述支持平台、已验证客户端版本及已知限制。
+
+GitHub 也会按 tag 提供自动源码压缩包。远程地址、仓库可见性和正式发布由发布者决定；本工具不会自动创建远端仓库或上传。[GitHub Release 说明](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)
+
+## 版本记录
+
+### 1.8.1
+
+- 将公开 Codex Aster 模板的 provider `name` 恢复为教程和固定基准中的 `OpenAI`。
+- 明确模板与 PDF 示例、完整本机配置、公共权限/存储字段及 hook 实现之间的差异。
+- 现有用户 profile 和固定基准保持不变；本次修正影响内置模板和今后的初始化。
+
+### 1.8.0
+
+- 发布源码与用户私密配置分离，公开 Aster 模板与 MIT 许可证。
+- 初始化可选择 Codex、Claude 或两者，支持隐藏输入 AsterGate key。
+- 未初始化也可查看 Aster 模板，实际 profile 拒绝未替换的占位符。
+- 明确 Linux、macOS、WSL2、Windows 原生的支持边界；接管限定 Linux。
+- 保留旧双客户端状态、profile 管理、固定基准、历史兼容修复与显式接管用法。

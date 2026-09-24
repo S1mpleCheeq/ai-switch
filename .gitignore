@@ -1,0 +1,37 @@
+# Local Python/build files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+
+# Credentials, client configuration, state and history never belong in source
+.env
+.env.*
+!.env.example
+.codex/
+.claude/
+.config/
+profiles/
+baseline/
+baselines/
+backups/
+runtime/
+repairs/
+state.json
+pending.json
+auth.json
+*.log
+*.sqlite*
+*.db
+*.jsonl
+*.key
+*.pem
+*.crt
+
+# Private investigation artifacts; publish synthetic tests instead
+diagnostics/

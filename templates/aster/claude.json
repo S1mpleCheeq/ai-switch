@@ -1,0 +1,26 @@
+{
+  "values": {
+    "model": "fable",
+    "effortLevel": "xhigh",
+    "ultracode": true,
+    "enableWorkflows": true,
+    "workflowKeywordTriggerEnabled": true,
+    "enableArtifact": false
+  },
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://aster.empeirion.cn:44444",
+    "ANTHROPIC_AUTH_TOKEN": "__ASTERGATE_API_KEY__",
+    "ANTHROPIC_MODEL": "claude-fable-5-1",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-fable-5-1",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME": "claude-fable-5-1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gemini-3.8-flash-high",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "gemini-3.8-flash-high",
+    "NODE_EXTRA_CA_CERTS": "__ASTERGATE_CA__",
+    "AI_SWITCH_MODE": "aster"
+  },
+  "launch_env": {},
+  "options": {
+    "read_guard": true,
+    "ca_file": "__ASTERGATE_CA__"
+  }
+}
