@@ -2,16 +2,18 @@
 
 本地管理 Claude Code 和 Codex 的多套 API 接入配置。切换通道、恢复固定基准、列出跨通道会话，并调用原生客户端续接。工具不提供 API 服务，也不附带可用的账户或密钥。
 
-发布版：**1.8.1** · Python **3.10+** · [MIT](LICENSE)
+发布版：**1.9.0** · Python **3.10+** · [MIT](LICENSE)
 
 ## 平台与客户端
 
 | 环境 | 支持范围 | 验证状态 |
 | --- | --- | --- |
-| Linux | 配置管理、会话列表/续接、Codex 修复和 `--takeover` | 本机测试平台 |
-| macOS | 基础配置管理及原生续接；不提供 `--takeover` | 实验性，未进行 macOS 真机验证 |
-| Windows WSL2 | 在 WSL 内安装本工具及两个原生 CLI，按 Linux 方式使用 | 预期兼容，未进行 WSL2 实机验证 |
-| Windows CMD / PowerShell 原生 Python | 暂不支持配置管理，提示改用 WSL2 | 不作为支持平台 |
+| Linux | 配置管理、会话列表/续接、Codex 修复和 `--takeover` | 原生平台测试 |
+| macOS | 同一套完整命令；接管用文件占用检查和 SIGTERM | GitHub macOS runner 验证 |
+| Windows 原生 | 同一套完整命令；原生 `.exe` 入口、ACL 和文件锁 | GitHub Windows runner 验证 |
+| WSL2 | 在 WSL 内安装客户端和工具，走 Linux 实现 | WSL2 本身未单独实机验证 |
+
+三个平台使用相同版本和 profile 格式，提供 `-linux.tar.gz`、`-macos.tar.gz`、`-windows.zip` 三种源码安装包。它们仍需要 Python 和所选原生客户端，不是内置账户的一键运行程序。Windows 与 WSL 使用各自的配置和进程，不应混用。
 
 Codex 的验证版本为 **0.155.1、0.156.0**，Claude Code 为 **2.1.258**。这是已验证版本清单，不表示所有中间或未来版本已测试。Claude 支持独立配置切换和原生续接；Codex 另有针对特定历史格式的兼容修复。详见[支持与验证范围](docs/compatibility.md)。
 
@@ -26,6 +28,18 @@ python3 -m venv .venv
 export PATH="$HOME/bin:$PATH"
 ai-switch --version
 ```
+
+Windows PowerShell 安装（无需激活虚拟环境）：
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe install.py
+$env:Path = "$HOME\bin;$env:Path"
+ai-switch --version
+```
+
+Windows 安装生成原生 `ai-switch.exe`，可从 PowerShell 或 CMD 使用；Linux/macOS 使用 `ai-switch` 脚本入口。首次安装后将用户 `bin` 目录加入 PATH。默认数据位置仍为用户主目录下的 `.config/ai-switch`，保留旧版兼容。
 
 安装程序仅复制工具和依赖，不初始化、不切换配置。常用终端的启动文件中可加入 `export PATH="$HOME/bin:$PATH"`，让后续终端也找到命令。原生 `codex` / `claude` 需自行安装，只安装所选客户端即可。
 
@@ -103,14 +117,14 @@ ai-switch run claude --mode micu --session UUID
 
 列表是文本列表，默认隐藏能识别的 subagent / guardian / sidechain；`--include-subagents` 可显示。两个客户端各用自己的历史，不互相转换会话。Codex 原生选择列表可能按 provider 过滤，跨通道找 UUID 可使用本工具。
 
-Linux 上，终端关闭后若旧 Codex 进程仍占用会话，可显式接管：
+终端关闭后若旧 Codex 进程仍占用会话，三个平台都可显式接管：
 
 ```bash
 ai-switch run codex --session UUID --takeover --dry-run
 ai-switch run codex --session UUID --takeover
 ```
 
-普通启动只报告占用。显式接管核实写锁持有者后发送 SIGTERM，最多等待 15 秒；不自动强杀、不删除锁文件，不结束共享后台服务或多会话进程。未完成请求可能中断，续接读取已保存历史。
+普通启动只报告占用。显式接管核实占用者、账户、进程身份和会话范围后：Linux/macOS 发送 SIGTERM；Windows 使用固定的进程句柄终止单个目标，未保存工作可能丢失。最多等待 15 秒，不追加批量结束或删除锁文件，不结束后台服务或能识别的多会话进程；身份不明确时拒绝操作。续接读取已保存历史。
 
 Aster 的 Codex 续接会检查已知历史 ID 和新版分页格式问题；必要时保留原会话并创建兼容副本，打印实际 UUID。再次启动可复用已有副本及后续对话。需要严格打开指定 UUID 时，加 `--no-auto-repair`。修复不能保证解决服务端断流或超时。独立入口为 `ai-switch repair-session UUID --dry-run`。
 
@@ -144,6 +158,6 @@ ai-switch check --network           # 可选：使用自己的凭据检查模型
 .venv/bin/python release.py         # 按文件白名单生成源码发布包
 ```
 
-本地私密文件存放在 `~/.config/ai-switch/`，包含明文凭据，目录权限 0700、文件 0600；不要上传该目录。安装、测试与发布不需要作者的 API key。详见[凭据与发布边界](docs/security.md)及[发布流程](docs/releasing.md)。
+本地私密文件存放在 `~/.config/ai-switch/`，包含明文凭据，Linux/macOS 目录权限 0700、文件 0600；Windows 使用仅当前用户、SYSTEM 和管理员可访问的 DACL；不要上传该目录。安装、测试与发布不需要作者的 API key。详见[凭据与发布边界](docs/security.md)及[发布流程](docs/releasing.md)。
 
 项目不隶属于 OpenAI、Anthropic、Micu 或 AsterGate。第三方模型别名、接口、证书与教程扩展可能变化。

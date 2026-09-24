@@ -106,7 +106,7 @@ ai-switch use backup --app codex
 
 Claude 的编辑方法相同，把 `--app codex` 换为 `--app claude`，使用该服务商的 Messages API 基地址与模型。Claude 的 `--effort` 使用 `low/medium/high/xhigh`；Codex 使用当前客户端和模型支持的值。
 
-不指定修改字段时，`profile edit NAME --app CLIENT` 打开 `VISUAL` / `EDITOR` 指定的编辑器，默认 `vi`；编辑临时文件包含真实凭据，权限 0600，退出后删除。可用 `--file` 导入自己准备的完整客户端 profile，但需保持原 provider ID，且不能包含脱敏或模板占位符。
+不指定修改字段时，`profile edit NAME --app CLIENT` 打开 `VISUAL` / `EDITOR` 指定的编辑器，Linux/macOS 默认 `vi`，Windows 默认记事本；编辑临时文件包含真实凭据，用平台私密权限保护，退出后删除。可用 `--file` 导入自己准备的完整客户端 profile，但需保持原 provider ID，且不能包含脱敏或模板占位符。
 
 ```bash
 ai-switch baseline protect backup        # 可选：一次性固定自己的参考基准
@@ -127,3 +127,26 @@ ai-switch profile edit aster --app codex --clear-subagent
 ```
 
 Claude 的 Haiku 别名映射与默认子代理模型是不同设置；`--clear-subagent` 不清理 Haiku 映射。需要修改更多字段时使用编辑器。`/workflow`、`/workflows` 等斜杠命令不是 ai-switch 实现的功能，应以自己所用客户端或扩展的帮助为准。
+
+## Windows 路径与原生客户端
+
+默认配置目录为 `%USERPROFILE%\.codex`、`%USERPROFILE%\.claude`，状态目录为 `%USERPROFILE%\.config\ai-switch`。路径含空格时加引号；PowerShell 不使用 Bash 的反斜杠续行，直接写成一行：
+
+```powershell
+ai-switch init --app codex --catalog "C:\AI Config\model-catalog.json" --ca "C:\AI Config\astergate-ca.crt" --ask-api-key
+ai-switch use aster
+ai-switch run codex --session UUID
+ai-switch run codex --session UUID --takeover --dry-run
+```
+
+使用原生 `.exe` 客户端或标准 npm 安装的 Codex/Claude。标准 npm `.cmd` 入口会按包的 bin 字段解析为原生可执行文件或 Node 与相应 JS 文件，参数不交给 CMD 再展开；未知自定义批处理包装器会被拒绝。Claude 命令 hook 需要其原生安装要求的 Git Bash；hook 使用本机 Python 绝对路径和 UTF-8。
+
+PowerShell 如需给初始化提供 Micu 环境变量，可隐藏读取：
+
+```powershell
+$env:MICU_API_KEY = py -3 -c "import getpass; print(getpass.getpass('Micu API key: '))"
+```
+
+密钥被捕获到环境变量，不要将变量内容打印或粘贴到 issue。初始化的 `--ask-api-key` 仍用于 AsterGate 的密钥。
+
+macOS 接管依赖系统 `lsof`。Windows 接管依赖 Restart Manager 和进程查询权限；锁文件被多个进程打开、权限不足或占用者身份变化时会拒绝结束进程。这与 Linux 上无法唯一确认锁持有者时的行为一致。

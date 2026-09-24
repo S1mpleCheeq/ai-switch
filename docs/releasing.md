@@ -1,6 +1,6 @@
 # 本地准备与发布
 
-本仓库按 MIT 许可分发；安装时带入的 tomlkit 保留其单独许可证。原生 Codex、Claude Code 及第三方模型目录不包含在本源码包中。
+本仓库按 MIT 许可分发；安装时带入的 tomlkit、psutil 和 Windows 启动器依赖 distlib 保留其单独许可证。原生 Codex、Claude Code 及第三方模型目录不包含在本源码包中。
 
 ## 验证与打包
 
@@ -11,12 +11,13 @@ python3 -m venv .venv
 .venv/bin/python release.py
 ```
 
-打包工具只接受显式发布文件清单：源码、测试、公开模板、文档和许可。缺文件、符号链接或命中常见密钥形式时会失败。输出 `dist/ai-switch-VERSION.tar.gz` 和对应 `.sha256`。不要手动把整个工作目录或 HOME 打包。
+打包工具只接受显式发布文件清单：源码、测试、公开模板、文档和许可。缺文件、符号链接或命中常见密钥形式时会失败。输出通用源码包以及 Linux/macOS `.tar.gz`、Windows `.zip` 三个平台源码安装包，每个附带 `.sha256`。平台包来自相同白名单，不包含其他系统机器上的私人文件。不要手动把整个工作目录或 HOME 打包。
 
-原生客户端集成验证是可选步骤，需要自行安装已支持版本的 CLI，并提供有效的模型目录。测试使用临时配置、假密钥和本地模拟 API，不应使用真实服务凭据：
+原生客户端集成验证是可选步骤，需要自行安装已支持版本的 CLI，默认自动生成合成测试模型目录，也可显式提供有效目录。测试使用临时配置、假密钥和本地模拟 API，不应使用真实服务凭据：
 
 ```bash
-.venv/bin/python integration_native.py --catalog /absolute/path/model-catalog.json
+.venv/bin/python -m pip install zstandard==0.23.0
+.venv/bin/python integration_native.py
 ```
 
 ## 发布到 GitHub
@@ -28,6 +29,15 @@ python3 -m venv .venv
 GitHub 也会按 tag 提供自动源码压缩包。远程地址、仓库可见性和正式发布由发布者决定；本工具不会自动创建远端仓库或上传。[GitHub Release 说明](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)
 
 ## 版本记录
+
+### 1.9.0
+
+- 支持 Linux、macOS、Windows 原生配置管理、基准、会话列表、续接与 Codex 兼容修复。
+- 提供各平台 Codex 接管后端，核实文件占用者、进程身份和会话范围；Windows 明确采用单进程终止语义。
+- Windows 使用私密 DACL、LockFileEx、原生 `.exe` 入口及 npm 客户端解析；统一 UTF-8 并处理带空格路径。
+- 发布三个平台源码安装包和通用包，保留相同命令与旧版状态格式。
+- GitHub Actions 在 Ubuntu、macOS、Windows 及 Python 3.10/3.12 上验证；详细结果与范围见兼容性文档。
+
 
 ### 1.8.1
 

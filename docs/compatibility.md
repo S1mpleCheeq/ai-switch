@@ -1,45 +1,44 @@
 # 支持与验证范围
 
-## 操作系统
+## 操作系统与功能
 
-| 平台 | 配置 / profile / 基准 | 原生续接与会话列表 | Codex 旧进程接管 |
+1.9.0 使用同一套核心逻辑和 profile 格式，通过系统适配层提供全部现有命令。Linux/macOS/Windows 分别提供源码安装包，仍需 Python 3.10+ 和所选原生客户端。
+
+| 平台 | profile / 切换 / 基准 | 会话列表、原生续接、Codex 修复 | Codex `--takeover` |
 | --- | --- | --- | --- |
-| Linux | 已测试 | 已测试 | 已测试；需要 `/proc`、flock 及可用的 pidfd API |
-| macOS | 实验性，代码采用 POSIX 文件操作；未真机测试 | 实验性；已占用时停止并要求退出旧客户端 | 明确不支持 |
-| WSL2 | 预期按 Linux 路径运行，未实机验证 | CLI 和历史须都位于 WSL 环境，未实机验证 | 取决于内核与进程可见性，未实机验证 |
-| Windows 原生 | 不支持；安装和运行会给出 WSL2 提示 | 不支持 | 不支持 |
+| Linux | 支持 | 支持 | `/proc` 核实写锁，pidfd 固定目标后发送 SIGTERM；需要支持 pidfd 的内核/Python |
+| macOS | 支持 | 支持 | 系统 lsof、文件锁及进程身份检查，向核实的单个进程发送 SIGTERM |
+| Windows 原生 | 支持 | 支持 | LockFileEx、Restart Manager、进程身份检查及固定进程句柄，终止单个目标 |
+| WSL2 | 使用 Linux 实现 | 客户端及历史须位于 WSL 内 | 依赖其 Linux 内核接口；未单独实测 WSL2 |
 
-macOS 的平台分支有模拟测试，这不等于 macOS 真机兼容性认证。WSL2 也没有被列入“实测通过”。不要混用 Windows 原生 CLI 与 WSL 内 ai-switch 管理同一份配置或进程。
+普通续接不会结束旧进程。接管必须显式使用 `--takeover`；可先 `--dry-run`。遇到多个文件使用者、后台服务、检测到的多会话进程、权限不足或身份变化时，接管会停止。Windows 的 TerminateProcess 不等于客户端正常退出，尚未持久化的工作可能丢失。macOS 使用创建时间复核 PID，不具有 Linux pidfd 同等的内核身份绑定能力。
 
-Python 最低声明为 3.10。本机验证使用 Python 3.12；其他 Python 小版本未逐一执行。本机是 Linux x86_64，不宣称所有发行版和 CPU 架构均已验证。
+Windows 文件使用受保护 DACL，允许当前用户、SYSTEM、管理员访问。安装生成原生 `ai-switch.exe`。原生 `.exe` 或标准 npm 客户端受支持；npm 入口根据已安装包的 `bin` 字段解析为原生程序或 Node 脚本，未知批处理包装器会被拒绝。Claude 的命令 hook 使用其要求的 Git Bash，不能用 CMD 的引用规则替代。
+
+默认目录仍是用户主目录下 `.config/ai-switch`、`.codex` 和 `.claude`，保留旧版状态。跨机器拷贝完整基准中的绝对路径和凭据不是本工具的迁移功能；应在各机器分别初始化。
 
 ## 原生客户端版本
 
-| 客户端 | 有测试证据的版本 | 验证重点 |
+| 客户端 | 版本 | 验证重点 |
 | --- | --- | --- |
-| Codex CLI | 0.155.1、0.156.0 | 配置切换、同 UUID 续接、请求路由、历史保留；0.156.0 的分页回退与写锁处理 |
-| Claude Code | 2.1.258 | 通过 `--settings`、`--model`、`--effort` 启动；同 UUID 双向续接，Messages 请求路由、主模型、历史上下文及 Micu 模式环境清理 |
+| Codex CLI | 0.156.0 | 新会话、同 UUID 多次切换续接、路由和历史保留；真实 CLI 写锁、接管、接管后续接 |
+| Claude Code | 2.1.258 | 新会话、同 UUID 双向续接、Messages 路由、模型及 Micu 环境清理 |
+| Codex CLI | 0.155.1 | 此前 Linux 版本验证记录；本次没有重新安装该旧版本 |
 
-这些是离散的已验证版本，不是“>= 某版本永久兼容”的承诺。版本号通过各 CLI 的 `--version` 获取。原生工具内部会话格式、配置字段及网关扩展可能变化；升级后宜先备份并用短会话验证。
+这是已验证客户端版本清单，不表示所有未来版本永久兼容。Claude 使用原生恢复，不提供 Codex 专用的 `repair-session` 或接管命令；这一客户端功能边界在三个操作系统相同。
 
-## Claude 的支持边界
+## 自动化验证
 
-Claude 并非只有配置文件输出：`run claude` 调用原生 CLI，`--session UUID` 转为原生 `--resume`，通过当前 profile 显式选择模型和设置。默认配置目录不设置额外的 `CLAUDE_CONFIG_DIR`，以保留原生全局 MCP 路径；自定义目录则遵从用户指定。
+工作流 `.github/workflows/ci.yml` 包含 Ubuntu、macOS、Windows × Python 3.10/3.12 六组单元测试及安装验证，另外有三个平台的原生客户端集成作业。2026-09-24 的 [九个 CI 作业全部通过](https://github.com/S1mpleCheeq/ai-switch/actions/runs/35970765128)：六组单元/安装测试，以及三个平台的真实原生客户端集成与接管测试。最终发布提交的状态可在 [GitHub Actions](https://github.com/S1mpleCheeq/ai-switch/actions) 查看。
 
-本项目会管理 Claude 的 `model`、`effortLevel`、API 环境变量、教程相关字段和 Read/View hook，并保留普通权限/MCP 等公共设置。Micu 模式去掉 Aster 的默认 Gemini 子代理和教程专属设置。
+147 项测试按适用平台执行：Linux 接管测试在 Linux 执行；macOS/Windows 原生锁及接管测试在相应 runner 执行，其他平台跳过。测试覆盖配置事务回滚、profile CRUD、基准和资源校验、历史修复、Windows ACL、跨进程锁、真实子进程接管、参数传递、含空格/中文路径、安装入口与发布包边界。不能把 Linux 上模拟平台分支等同于其他系统上的执行。
 
-`ultracode`、`enableWorkflows`、Fable 模型别名等是教程参考字段；本工具不能让不识别这些字段的客户端获得对应功能。验证“写入配置”或“请求路由正确”不等于验证了所有工作流、自主委派和 Gemini 工具行为。`/workflow` 与 `/workflows` 也不是本工具注册的命令。
+原生集成测试固定安装 Codex 0.156.0、Claude Code 2.1.258，使用临时 HOME/CODEX_HOME、合成模型目录、假密钥和本地模拟 Responses/Messages API。两客户端均执行新会话及四次跨 profile 续接；另让真实 Codex 进程持锁等待本地 API，验证接管预览、结束旧进程、写锁释放以及同 UUID 再次续接保留前文。
 
-Claude 没有 Codex 的 `repair-session` 或进程接管实现。它使用原生会话恢复，不改写 Claude 的历史结构。
+集成测试不接触用户的配置、进程或会话，不请求真实服务商。不证明服务商的额度、计费、上游可用性或任意长历史兼容。验证范围为 CI 使用的操作系统与架构，不承诺所有旧系统、文件系统或 CPU 组合。
 
-## 测试方法与限制
+## 教程扩展与服务端边界
 
-2026-09-24 的 1.8.0 发布准备验证：**135 项单元测试通过**；全部 **22 页 CLI 帮助**和临时安装包中的模板可用。原生集成测试在 Linux x86_64、Python 3.12、Codex 0.156.0、Claude Code 2.1.258 下通过，两客户端均完成新会话及四次跨 profile 续接。Codex 0.155.1 来自此前版本的测试记录，本次没有重新安装该版本。
+Claude 的 `ultracode`、`enableWorkflows`、Fable 模型别名等来自参考教程。工具会写入这些字段，但不能让不识别它们的原生客户端获得对应功能。Read/View hook 负责读取纠偏，不修改上下文窗口或缓存。`/workflow` 与 `/workflows` 不是本工具注册的命令。
 
-单元测试使用临时目录、假密钥、合成会话及受控的进程锁，验证事务回滚、基准、profile CRUD、历史修复、单客户端初始化和公开发布边界。
-
-`integration_native.py` 运行已安装的原生客户端，但请求发到本机模拟的 Messages / Responses 服务。它检查新会话、同 UUID 往返 Micu/Aster 及复制的 profile 后的路由和上下文；不会请求真实网关或使用真实 key。模拟接口成功证明本工具能够正确启动和配置客户端，不证明某服务商当前可用、计费正确或支持任意长度历史。
-
-此前 Linux 上的 Codex 0.156.0 原生接管验证还覆盖：旧进程退出、新进程获得同一 UUID 写锁、原历史显示、接管后回复完成，以及另一测试会话不受影响。公开包不包含当时的真实用户排障记录。
-
-模型名称、额度、CA 信任、服务端认证与协议兼容由使用者和提供服务的一方确认。`check --network` 只检查模型列表接口，不是完整聊天测试。
+模型目录、证书信任、服务端认证与协议兼容由使用者及服务商确认。`check --network` 只检查模型列表接口，不是完整聊天测试；历史兼容修复不能保证解决上游断流、超时或所有未来历史格式。
