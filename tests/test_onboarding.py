@@ -253,7 +253,10 @@ class CLICompatibilityTests(unittest.TestCase):
 
         def normalize(value):
             if isinstance(value, str):
-                return value.replace(str(Path.home()), "<HOME>")
+                home = str(Path.home())
+                if value.startswith(home + os.sep):
+                    return "<HOME>/" + Path(value).relative_to(Path.home()).as_posix()
+                return value
             if isinstance(value, (tuple, list)):
                 return [normalize(item) for item in value]
             if isinstance(value, (bool, int, float)) or value is None:
